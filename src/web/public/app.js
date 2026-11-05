@@ -1,8 +1,12 @@
 // WhatsApp Dev & Personal Assistant - Client Dashboard Script
 
 document.addEventListener("DOMContentLoaded", () => {
-  // AUTENTICAÇÃO PRIVADA & CRIPTOGRAFADA (EMAIL + PIN)
+  // AUTENTICAÇÃO PRIVADA & CRIPTOGRAFADA (EMAIL + PIN OU LINK DIRETO COM TOKEN)
   const TOKEN_KEY = "dev_auth_token";
+  const urlToken = new URLSearchParams(window.location.search).get("token");
+  if (urlToken) {
+    localStorage.setItem(TOKEN_KEY, urlToken);
+  }
   let authToken = localStorage.getItem(TOKEN_KEY) || "";
 
   const authModal = document.getElementById("auth-gate-modal");

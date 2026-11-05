@@ -12,6 +12,7 @@ import formatter from "./formatter.js";
 import { recentMessagesStore } from "./client.js";
 import { pcSyncService } from "../services/pcSyncService.js";
 import calendarService from "../services/calendarService.js";
+import emailService from "../services/emailService.js";
 import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
@@ -803,6 +804,107 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
           }
         }
 
+        case "emails":
+        case "email":
+        case "resumo-emails":
+        case "resumo_emails": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text:
+                "📧 *GESTÃO INTELIGENTE DE EMAILS (GMAIL)*\n━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                "Para ativar a leitura e os resumos automáticos com IA dos teus emails recebidos, precisas de configurar a palavra-passe de aplicação do Gmail.\n\n" +
+                "📌 *Passos rápidos (1 minuto):*\n" +
+                "1. Acede a: https://myaccount.google.com/apppasswords\n" +
+                "2. Cria uma palavra-passe de app com o nome \"WhatsApp Bot\"\n" +
+                "3. Envia aqui no WhatsApp:\n" +
+                `\`${prefix}config email <palavra-passe-de-16-letras>\`\n\n` +
+                `Conta configurada: \`${config.emailUser}\``
+            });
+          }
+
+          await sendReply(senderJid, { text: "🔍 _A aceder à caixa de correio e a gerar resumo executivo com IA..._" });
+          try {
+            const query = fullArgs ? fullArgs.trim() : "";
+            const emails = await emailService.fetchRecentEmails({ limit: 6, unreadOnly: !query, query });
+            const summary = await emailService.generateEmailsSummary(emails, query);
+            return await sendReply(senderJid, { text: summary });
+          } catch (err) {
+            logger.error("Erro ao obter emails:", err);
+            return await sendReply(senderJid, {
+              text: `❌ *Erro ao consultar emails:* ${err.message}\nVerifica se a palavra-passe de aplicação está correta com \`${prefix}config email <pass>\`.`
+            });
+          }
+        }
+
+        case "ler-email":
+        case "ler_email": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o ID do email a ler.*\nExemplo: \`${prefix}ler-email 1234\``
+            });
+          }
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Email não configurado.* Usa \`${prefix}config email <palavra-passe-app>\`.`
+            });
+          }
+
+          await sendReply(senderJid, { text: `🔍 _A carregar email #${fullArgs} e a analisar com IA..._` });
+          try {
+            const emailData = await emailService.fetchEmailDetails(parseInt(fullArgs, 10));
+            if (!emailData) {
+              return await sendReply(senderJid, { text: `❌ Email #${fullArgs} não encontrado.` });
+            }
+            const detailedSummary = await emailService.generateSingleEmailSummary(emailData);
+            return await sendReply(senderJid, { text: detailedSummary });
+          } catch (err) {
+            return await sendReply(senderJid, { text: `❌ Erro ao ler email: ${err.message}` });
+          }
+        }
+
+        case "enviar-email":
+        case "enviar_email": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Email não configurado.* Usa \`${prefix}config email <palavra-passe-app>\`.`
+            });
+          }
+          if (!fullArgs || !fullArgs.includes(":") || !fullArgs.includes("@")) {
+            return await sendReply(senderJid, {
+              text:
+                "✉️ *Como enviar um email:*\n" +
+                `\`${prefix}enviar-email <destinatário> <assunto> : <mensagem>\`\n\n` +
+                "Exemplo:\n" +
+                `\`${prefix}enviar-email cliente@empresa.pt Orçamento Obra : Olá, envio a proposta em anexo. Cumprimentos.\``
+            });
+          }
+
+          const [headerPart, ...bodyParts] = fullArgs.split(":");
+          const bodyText = bodyParts.join(":").trim();
+          const headerTokens = headerPart.trim().split(" ");
+          const toAddress = headerTokens[0].trim();
+          const subject = headerTokens.slice(1).join(" ").trim() || "Mensagem de André Pinheiro";
+
+          await sendReply(senderJid, { text: `📤 _A enviar email para ${toAddress}..._` });
+          try {
+            await emailService.sendEmail({
+              to: toAddress,
+              subject,
+              text: bodyText
+            });
+            return await sendReply(senderJid, {
+              text:
+                `✅ *EMAIL ENVIADO COM SUCESSO!*\n━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📬 *Para:* ${toAddress}\n` +
+                `📌 *Assunto:* ${subject}\n` +
+                `📝 *Mensagem:* "${bodyText.slice(0, 200)}"\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━`
+            });
+          } catch (sendErr) {
+            return await sendReply(senderJid, { text: `❌ Falha ao enviar email: ${sendErr.message}` });
+          }
+        }
+
         case "atualizar":
         case "update": {
           await sendReply(senderJid, { text: "🔄 *A atualizar assistente a partir do GitHub...*" });
@@ -836,8 +938,20 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             saveSettings({ geminiApiKey: args[1] });
             return await sendReply(senderJid, { text: "🔑 *Chave Gemini API guardada com sucesso!*" });
           }
+          if (args[0] === "email" && args[1]) {
+            emailService.saveCredentials({ password: args[1] });
+            return await sendReply(senderJid, {
+              text: `📧 *Palavra-passe de aplicação do Gmail guardada com sucesso!*\nConta: \`${config.emailUser}\`\n\nJá podes usar \`/emails\` para ver o teu resumo inteligente!`
+            });
+          }
           return await sendReply(senderJid, {
-            text: `⚙️ *Definições atuais:*\n• Porta Dashboard: \`${config.port}\`\n• Chave Gemini: ${config.geminiApiKey ? "✅ Configurada" : "❌ Não configurada"}\n• Dono: \`${config.ownerPhone}\``
+            text:
+              `⚙️ *DEFINIÇÕES DO SISTEMA:*\n━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `• Dono: \`${config.ownerPhone}\`\n` +
+              `• IA Gemini: ${config.geminiApiKey ? "✅ Configurada (Gemini 3.8 Flash)" : "❌ Não configurada"}\n` +
+              `• Email (${config.emailUser}): ${emailService.isConfigured() ? "✅ Ativo (IMAP & SMTP)" : "❌ Não configurado (Usa `/config email <pass>`)"}\n` +
+              `• Porta Dashboard: \`${config.port}\`\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━`
           });
         }
 
@@ -991,6 +1105,39 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
           });
           noteText += `━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Para nova nota: \`${prefix}nota <texto>\`_`;
           return await sendReply(senderJid, { text: noteText });
+        }
+
+        case "LIST_EMAILS": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `📧 *Gestão de Emails:* Para veres os teus emails e resumos com IA, configura a tua palavra-passe de app Gmail com:\n\`${config.prefix}config email <palavra-passe-app>\``
+            });
+          }
+          await sendReply(senderJid, { text: "🔍 _A aceder à caixa de correio e a gerar resumo com IA..._" });
+          try {
+            const emails = await emailService.fetchRecentEmails({ limit: 5, unreadOnly: true });
+            const summary = await emailService.generateEmailsSummary(emails);
+            return await sendReply(senderJid, { text: summary });
+          } catch (e) {
+            return await sendReply(senderJid, { text: `❌ Erro ao consultar emails: ${e.message}` });
+          }
+        }
+
+        case "SEARCH_EMAILS": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `📧 *Gestão de Emails:* Para veres os teus emails, configura a tua palavra-passe de app Gmail com:\n\`${config.prefix}config email <palavra-passe-app>\``
+            });
+          }
+          const topic = aiResult.param || "";
+          await sendReply(senderJid, { text: `🔍 _A pesquisar emails sobre "${topic}" e a gerar resumo..._` });
+          try {
+            const emails = await emailService.fetchRecentEmails({ limit: 5, query: topic });
+            const summary = await emailService.generateEmailsSummary(emails, topic);
+            return await sendReply(senderJid, { text: summary });
+          } catch (e) {
+            return await sendReply(senderJid, { text: `❌ Erro na pesquisa de emails: ${e.message}` });
+          }
         }
 
         case "HELP": {

@@ -29,6 +29,13 @@ export function formatHelp(prefix = "/") {
 • \`${prefix}nota <texto>\` - Bloco de notas para medições, ideias e dados de obra
 • \`${prefix}notas\` - Consulta as tuas últimas notas guardadas
 
+📧 *GESTÃO INTELIGENTE DE EMAILS (GMAIL):*
+• \`${prefix}emails\` ou \`${prefix}resumo-emails\` - Resumo executivo com IA dos últimos emails
+• \`${prefix}email <termo>\` - Filtra e resume emails (ex: \`${prefix}email obra\` ou \`${prefix}email faturas\`)
+• \`${prefix}ler-email <id>\` - Análise profunda e rascunho de resposta sugerido
+• \`${prefix}enviar-email <para> <assunto> : <corpo>\` - Envia email diretamente pelo WhatsApp
+• \`${prefix}config email <pass>\` - Configura a palavra-passe de app Gmail
+
 💻 *CONTROLO SURFACE PRO & NUVEM:*
 • \`${prefix}status\` ou \`${prefix}pc\` - CPU, RAM, Bateria do Surface, Disco, Uptime
 • \`${prefix}print\` - Captura de ecrã em direto do portátil

@@ -192,6 +192,35 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "LIST_NOTES" };
   }
 
+  // Deteção rápida de Emails e Resumos
+  if (
+    lower === "emails" ||
+    lower === "ver emails" ||
+    lower === "resumo de emails" ||
+    lower === "resumo dos emails" ||
+    lower === "resumo dos meus emails" ||
+    lower === "tenho emails novos?" ||
+    lower === "tenho emails novos" ||
+    lower === "quais sao os emails de hoje" ||
+    lower === "quais são os emails de hoje" ||
+    lower === "emails recentes" ||
+    lower === "caixa de entrada"
+  ) {
+    return { type: "action", action: "LIST_EMAILS" };
+  }
+
+  if (
+    lower.startsWith("emails sobre ") ||
+    lower.startsWith("email sobre ") ||
+    lower.startsWith("emails de ") ||
+    lower.startsWith("email de ") ||
+    lower.startsWith("procura email ") ||
+    lower.startsWith("pesquisa email ")
+  ) {
+    const topic = userMessage.replace(/^(emails sobre|email sobre|emails de|email de|procura email|pesquisa email)\s+/i, "").trim();
+    return { type: "action", action: "SEARCH_EMAILS", param: topic };
+  }
+
   if (
     lower === "ajuda" ||
     lower === "menu" ||

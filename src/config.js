@@ -70,7 +70,13 @@ export const config = {
   antigravityGlobalDir: path.join(process.env.USERPROFILE || "C:\\Users\\Surface_Dpc", ".gemini", "antigravity"),
   isCloud: process.env.IS_CLOUD === "true" || settings.isCloud === true,
   cloudServerUrl: process.env.CLOUD_SERVER_URL || settings.cloudServerUrl || "http://localhost:3333",
-  syncSecret: process.env.SYNC_SECRET_TOKEN || settings.syncSecret || "sync_default_token_9959"
+  syncSecret: process.env.SYNC_SECRET_TOKEN || settings.syncSecret || "sync_default_token_9959",
+  emailUser: process.env.EMAIL_USER || settings.emailUser || settings.authEmail || "Andre22pinheiro@gmail.com",
+  emailPassword: process.env.EMAIL_PASSWORD || settings.emailPassword || "",
+  imapHost: process.env.IMAP_HOST || settings.imapHost || "imap.gmail.com",
+  imapPort: parseInt(process.env.IMAP_PORT || settings.imapPort || "993", 10),
+  smtpHost: process.env.SMTP_HOST || settings.smtpHost || "smtp.gmail.com",
+  smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || "465", 10)
 };
 
 export default config;

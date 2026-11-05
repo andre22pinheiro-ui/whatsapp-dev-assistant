@@ -309,18 +309,65 @@ export function createWebServer() {
 
   // 8. DEFINIÇÕES
   app.post("/api/settings", (req, res) => {
-    const { ownerPhone, geminiApiKey, allowAllSenders } = req.body;
-    const updated = saveSettings({
-      ownerPhone: ownerPhone !== undefined ? ownerPhone : config.ownerPhone,
-      geminiApiKey: geminiApiKey !== undefined ? geminiApiKey : config.geminiApiKey,
-      allowAllSenders: allowAllSenders !== undefined ? allowAllSenders : config.allowAllSenders
-    });
+    const { ownerPhone, geminiApiKey, allowAllSenders, emailUser, emailPassword } = req.body;
+    const updates = {};
+    if (ownerPhone !== undefined) {
+      config.ownerPhone = ownerPhone;
+      updates.ownerPhone = ownerPhone;
+    }
+    if (geminiApiKey !== undefined) {
+      config.geminiApiKey = geminiApiKey;
+      updates.geminiApiKey = geminiApiKey;
+    }
+    if (allowAllSenders !== undefined) {
+      config.allowAllSenders = allowAllSenders;
+      updates.allowAllSenders = allowAllSenders;
+    }
+    if (emailUser !== undefined) {
+      config.emailUser = emailUser;
+      updates.emailUser = emailUser;
+    }
+    if (emailPassword !== undefined) {
+      config.emailPassword = emailPassword;
+      updates.emailPassword = emailPassword;
+    }
 
-    if (ownerPhone !== undefined) config.ownerPhone = ownerPhone;
-    if (geminiApiKey !== undefined) config.geminiApiKey = geminiApiKey;
-    if (allowAllSenders !== undefined) config.allowAllSenders = allowAllSenders;
-
+    const updated = saveSettings(updates);
     res.json({ success: true, settings: updated });
+  });
+
+  // 8.1 GESTÃO DE EMAILS (LEITURA E RESUMO)
+  app.get("/api/emails", async (req, res) => {
+    try {
+      const { emailService } = await import("../services/emailService.js");
+      if (!emailService.isConfigured()) {
+        return res.json({ success: false, configured: false, error: "Email não configurado" });
+      }
+      const query = req.query.q || "";
+      const limit = parseInt(req.query.limit || "6", 10);
+      const emails = await emailService.fetchRecentEmails({ limit, query });
+      const summary = await emailService.generateEmailsSummary(emails, query);
+      res.json({ success: true, configured: true, emails, summary });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post("/api/emails/send", async (req, res) => {
+    try {
+      const { emailService } = await import("../services/emailService.js");
+      if (!emailService.isConfigured()) {
+        return res.status(400).json({ success: false, error: "Email não configurado" });
+      }
+      const { to, subject, body } = req.body || {};
+      if (!to || !body) {
+        return res.status(400).json({ success: false, error: "Destinatário ('to') e corpo ('body') são obrigatórios" });
+      }
+      const result = await emailService.sendEmail({ to, subject, body });
+      res.json({ success: true, result });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   });
 
   // 9. FORÇAR RECONEXÃO / GERAR NOVO CÓDIGO

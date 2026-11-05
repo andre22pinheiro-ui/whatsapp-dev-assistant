@@ -16,6 +16,7 @@ import { handleIncomingMessage } from "./messageHandler.js";
 import personalAssistant from "../services/personalAssistant.js";
 
 export const botSentMessageIds = new Set();
+export const recentMessagesStore = new Map();
 
 /**
  * Instância de socket WhatsApp com sessão fixa e persistente
@@ -56,8 +57,12 @@ export class WhatsAppBotInstance extends EventEmitter {
   async reconnect(forceResetAuth = false) {
     logger.info(`[${this.name}] A reiniciar bot WhatsApp (+${this.phone}) [Reset credenciais: ${forceResetAuth}]...`);
     try {
+      this.isStarting = false;
       if (this.sock) {
-        try { this.sock.end(); } catch (e) {}
+        try {
+          this.sock.ev.removeAllListeners();
+          this.sock.end();
+        } catch (e) {}
         this.sock = null;
       }
       if (forceResetAuth) {
@@ -123,7 +128,10 @@ export class WhatsAppBotInstance extends EventEmitter {
         syncFullHistory: false,
         markOnlineOnConnect: true,
         getMessage: async (key) => {
-          return { conversation: "" };
+          if (key?.id && recentMessagesStore.has(key.id)) {
+            return recentMessagesStore.get(key.id);
+          }
+          return undefined;
         }
       });
 
@@ -251,6 +259,9 @@ export class WhatsAppBotInstance extends EventEmitter {
       this.sock.ev.on("messages.upsert", async ({ messages, type }) => {
         if (type !== "notify" && type !== "append") return;
         for (const msg of messages) {
+          if (msg.key?.id && msg.message) {
+            recentMessagesStore.set(msg.key.id, msg.message);
+          }
           if (msg.key?.id && botSentMessageIds.has(msg.key.id)) continue;
           try {
             if (onMessageReceived) {
@@ -272,8 +283,12 @@ export class WhatsAppBotInstance extends EventEmitter {
     }
     const result = await this.sock.sendMessage(targetJid, content);
     if (result?.key?.id) {
+      recentMessagesStore.set(result.key.id, result.message || content);
       botSentMessageIds.add(result.key.id);
-      setTimeout(() => botSentMessageIds.delete(result.key.id), 600000);
+      setTimeout(() => {
+        botSentMessageIds.delete(result.key.id);
+        recentMessagesStore.delete(result.key.id);
+      }, 600000);
     }
     return result;
   }

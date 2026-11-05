@@ -321,9 +321,14 @@ export function createWebServer() {
 
   // 9. FORÇAR RECONEXÃO / GERAR NOVO CÓDIGO
   app.post("/api/reconnect", async (req, res) => {
-    const { target, reset } = req.body || {};
-    logger.info(`Reconexão solicitada manualmente pelo Dashboard Web (alvo: ${target || "todos"}, reset: ${!!reset})`);
+    const { target, reset, restartProcess } = req.body || {};
+    logger.info(`Reconexão solicitada (alvo: ${target || "todos"}, reset: ${!!reset}, restart: ${!!restartProcess})`);
     try {
+      if (restartProcess) {
+        res.json({ success: true, message: "A reiniciar processo..." });
+        setTimeout(() => process.exit(0), 500);
+        return;
+      }
       await whatsapp.reconnect(target || "all", !!reset);
       res.json({ success: true, message: "Reconexão iniciada" });
     } catch (e) {

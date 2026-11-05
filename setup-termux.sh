@@ -35,3 +35,4 @@ echo "✅ TERMUX CONFIGURADO COM SUCESSO!"
 echo "Para iniciar o bot sempre que quiser, basta correr:"
 echo "  ./start.sh"
 echo "========================================================================"
+

@@ -9,6 +9,7 @@ import personalAssistant from "../services/personalAssistant.js";
 import aiService from "../services/aiService.js";
 import cloudTunnel from "../services/cloudTunnelService.js";
 import formatter from "./formatter.js";
+import { recentMessagesStore } from "./client.js";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
   try {
@@ -41,19 +42,37 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
 
     // Função de envio seguro que regista ID para evitar repetições em loop
     const sendReply = async (jid, content) => {
-      const destination = (jid && !jid.includes("@lid")) ? jid : replyJid;
+      const destination = jid || msg.key.remoteJid || replyJid;
       logger.info(`📤 [RESPOSTA] A enviar resposta para ${destination}...`);
       try {
-        const sent = await sock.sendMessage(destination, content);
+        const sent = await sock.sendMessage(destination, content, { quoted: msg });
         if (sent?.key?.id) {
+          recentMessagesStore.set(sent.key.id, sent.message || content);
           botSentMessageIds.add(sent.key.id);
-          setTimeout(() => botSentMessageIds.delete(sent.key.id), 600000);
+          setTimeout(() => {
+            botSentMessageIds.delete(sent.key.id);
+            recentMessagesStore.delete(sent.key.id);
+          }, 600000);
         }
         logger.info(`✅ [RESPOSTA] Mensagem enviada com sucesso para ${destination}`);
         return sent;
       } catch (err) {
-        logger.error(`❌ [RESPOSTA] Falha ao enviar para ${destination}:`, err);
-        throw err;
+        logger.warn(`Tentativa direta falhou, a tentar fallback para ${replyJid}: ${err.message}`);
+        try {
+          const sentFallback = await sock.sendMessage(replyJid, content);
+          if (sentFallback?.key?.id) {
+            recentMessagesStore.set(sentFallback.key.id, sentFallback.message || content);
+            botSentMessageIds.add(sentFallback.key.id);
+            setTimeout(() => {
+              botSentMessageIds.delete(sentFallback.key.id);
+              recentMessagesStore.delete(sentFallback.key.id);
+            }, 600000);
+          }
+          return sentFallback;
+        } catch (e2) {
+          logger.error(`❌ [RESPOSTA] Falha ao enviar para ${destination}:`, e2);
+          throw e2;
+        }
       }
     };
 

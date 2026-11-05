@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Dev & Personal Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- BARRA SUPERIOR -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>WhatsApp Dev & Personal Assistant</h1>
+          <p class="subtitle">Antigravity AI • Android Studio • Controlo Remoto do PC</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div id="user-auth-pill" style="display: flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; color: #93c5fd;">
+          <span>👤 Andre22pinheiro@gmail.com</span>
+          <button onclick="logoutAuth()" style="background: none; border: none; color: #f87171; cursor: pointer; font-size: 0.75rem; font-weight: 700; padding: 0 4px; text-decoration: underline;" title="Terminar Sessão">Sair</button>
+        </div>
+        <div id="wa-status-badge" class="badge badge-connecting">
+          <span class="status-dot"></span>
+          <span id="wa-status-text">A conectar...</span>
+        </div>
+        <button id="btn-open-settings" class="btn btn-secondary">
+          ⚙️ Definições
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL EM GRELHA -->
+    <main class="dashboard-grid">
+      <!-- BANNER DE ACESSO EM NUVEM CLOUDFLARE -->
+      <div id="cloud-banner" style="grid-column: span 12; background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(124, 58, 237, 0.25)); border: 1px solid rgba(96, 165, 250, 0.4); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="font-size: 2rem; background: rgba(59, 130, 246, 0.2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">☁️</div>
+          <div>
+            <div style="font-weight: 800; font-size: 1rem; color: #93c5fd; display: flex; align-items: center; gap: 8px;">
+              Acesso em Nuvem Ativo (Cloudflare HTTPS Seguro)
+              <span id="cloud-status-badge" class="pill pill-connected" style="font-size: 0.68rem; padding: 2px 8px;">Online Global</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">
+              Acede ao teu assistente e envia ordens a partir de qualquer telemóvel fora de casa (4G/5G/Wi-Fi).
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <a id="cloud-public-link" href="#" target="_blank" style="padding: 8px 16px; background: rgba(37, 99, 235, 0.35); border: 1px solid #60a5fa; border-radius: 8px; color: #bfdbfe; text-decoration: none; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+            🌐 <span id="cloud-link-text">A ligar túnel de nuvem...</span>
+          </a>
+          <button class="btn btn-secondary btn-sm" onclick="copyCloudLink()">📋 Copiar Link</button>
+        </div>
+      </div>
+
+      <!-- 1. PAINEL DUAL-BOT (RECEPTOR 912 101 839 <-> EMISSOR 919 115 655) -->
+      <section class="card wa-card" style="grid-column: span 12;">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon wa-icon">🤖</span>
+            <h2>Arquitetura Dual-Bot: Ponte de Recepção & Envio WhatsApp</h2>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <span id="bridge-status-tag" class="pill pill-offline">Ponte Offline</span>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- FLUXOGRAMA VISUAL DA PONTE -->
+          <div class="phone-config-banner" style="margin-bottom: 20px;">
+            <div class="phone-item">
+              <span class="phone-role">📥 BOT 1: RECEPTOR (RECEBE AS ORDENS):</span>
+              <strong class="phone-val" id="disp-receiver-phone">+351 912 101 839</strong>
+              <small style="color: var(--text-dim); font-size: 0.72rem;">Lê ordens e encaminha para o assistente</small>
+            </div>
+            <div class="phone-arrow" style="font-size: 1.5rem;">➔ ⚡ ➔</div>
+            <div class="phone-item">
+              <span class="phone-role">📤 BOT 2: EMISSOR (EXECUTA & RESPONDE):</span>
+              <strong class="phone-val" id="disp-sender-phone">+351 919 115 655</strong>
+              <small style="color: var(--text-dim); font-size: 0.72rem;">Envia mensagens, APKs, Prints e Status</small>
+            </div>
+          </div>
+
+          <!-- GRELHA DOS DOIS BOTS -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+            <!-- BOT 1: RECEPTOR -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <div style="font-weight: 800; font-size: 0.95rem; color: var(--accent-cyan);">
+                  📥 Bot 1: Receptor (+351 912 101 839)
+                </div>
+                <span id="receiver-session-tag" class="pill pill-offline">Offline</span>
+              </div>
+
+              <!-- Código de emparelhamento do Receptor -->
+              <div id="receiver-pairing-box" class="pairing-code-card" style="padding: 12px;">
+                <span class="pairing-badge">CÓDIGO DE EMPARELHAMENTO</span>
+                <div class="code-display" id="receiver-code-display" style="font-size: 1.4rem;">A gerar...</div>
+                <p class="code-help" style="font-size: 0.72rem;">
+                  No WhatsApp do número <strong>912 101 839</strong>: vá a <strong>Dispositivos associados &gt; Associar com número de telefone</strong>.
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: center;">
+                <img id="receiver-qr-image" src="" alt="QR Code Receptor" style="width: 140px; height: 140px; background: #fff; padding: 6px; border-radius: 8px; display: none;" />
+              </div>
+
+              <div id="receiver-connected-box" style="display: none; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; color: var(--primary); font-size: 0.82rem; font-weight: 700; text-align: center;">
+                ✅ Conectado e à escuta de mensagens!
+              </div>
+
+              <button class="btn btn-secondary btn-sm" onclick="reconnectBot('receiver')" style="margin-top: auto;">
+                🔄 Gerar Novo Código (Receptor)
+              </button>
+            </div>
+
+            <!-- BOT 2: EMISSOR -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <div style="font-weight: 800; font-size: 0.95rem; color: var(--primary);">
+                  📤 Bot 2: Emissor (+351 919 115 655)
+                </div>
+                <span id="sender-session-tag" class="pill pill-offline">Offline</span>
+              </div>
+
+              <!-- Código de emparelhamento do Emissor -->
+              <div id="sender-pairing-box" class="pairing-code-card" style="padding: 12px;">
+                <span class="pairing-badge">CÓDIGO DE EMPARELHAMENTO</span>
+                <div class="code-display" id="sender-code-display" style="font-size: 1.4rem;">A gerar...</div>
+                <p class="code-help" style="font-size: 0.72rem;">
+                  No WhatsApp do número <strong>919 115 655</strong>: vá a <strong>Dispositivos associados &gt; Associar com número de telefone</strong>.
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: center;">
+                <img id="sender-qr-image" src="" alt="QR Code Emissor" style="width: 140px; height: 140px; background: #fff; padding: 6px; border-radius: 8px; display: none;" />
+              </div>
+
+              <div id="sender-connected-box" style="display: none; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; color: var(--primary); font-size: 0.82rem; font-weight: 700; text-align: center;">
+                ✅ Conectado e pronto para enviar mensagens/APKs!
+              </div>
+
+              <button class="btn btn-secondary btn-sm" onclick="reconnectBot('sender')" style="margin-top: auto;">
+                🔄 Gerar Novo Código (Emissor)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. CARTÃO DE SAÚDE DO COMPUTADOR -->
+      <section class="card system-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon sys-icon">💻</span>
+            <h2>Computador & Hardware</h2>
+          </div>
+          <button id="btn-refresh-sys" class="btn-icon" title="Atualizar Métricas">🔄</button>
+        </div>
+
+        <div class="card-body">
+          <div class="metrics-grid">
+            <div class="metric-item">
+              <span class="metric-label">Processador (CPU)</span>
+              <span id="sys-cpu" class="metric-value">-- %</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Memória RAM</span>
+              <span id="sys-ram" class="metric-value">-- GB</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Bateria</span>
+              <span id="sys-battery" class="metric-value">-- %</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Disco Primário</span>
+              <span id="sys-disk" class="metric-value">-- GB</span>
+            </div>
+          </div>
+
+          <div class="sys-footer">
+            <span id="sys-os">Microsoft Windows</span>
+            <span id="sys-uptime">Uptime: --</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. CARTÃO DE PROJETOS (ANDROID STUDIO & GERAL) -->
+      <section class="card projects-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon dev-icon">📂</span>
+            <h2>Projetos Desktop (<span id="projects-count">0</span>)</h2>
+          </div>
+          <div class="card-actions">
+            <button id="btn-refresh-projects" class="btn btn-sm btn-secondary">Atualizar</button>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div id="projects-list" class="projects-list">
+            <!-- Injetado dinamicamente via JS -->
+            <div class="empty-placeholder">A carregar projetos...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. CARTÃO DE GESTOR PESSOAL (TAREFAS & LEMBRETES) -->
+      <section class="card tasks-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon task-icon">📋</span>
+            <h2>Gestor Pessoal</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <form id="task-form" class="task-input-row">
+            <input type="text" id="task-input" placeholder="Nova tarefa pessoal..." required />
+            <button type="submit" class="btn btn-primary btn-sm">+ Adicionar</button>
+          </form>
+
+          <div id="tasks-list" class="tasks-list">
+            <!-- Injetado dinamicamente -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 4.1 CARTÃO DE ORDENS DO CHAT ANTIGRAVITY (WHATSAPP BRIDGE) -->
+      <section class="card chat-orders-card" style="grid-column: span 12;">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">⚡</span>
+            <h2>Ordens do Chat Antigravity (Ponte WhatsApp ➔ Chat)</h2>
+          </div>
+          <div class="card-actions" style="display: flex; gap: 10px; align-items: center;">
+            <span style="font-size: 0.75rem; color: var(--text-dim);">Sessão Ativa: <code id="active-session-id" style="color: var(--accent-cyan);">0d7a259f...</code></span>
+            <button id="btn-refresh-orders" class="btn btn-sm btn-secondary" onclick="loadChatOrders()">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <div class="card-body" style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+            💡 <strong>Como enviar ordens via WhatsApp do telemóvel:</strong><br />
+            • Envia <code style="color: var(--primary);">/ordem &lt;instrução&gt;</code> ou <code style="color: var(--primary);">/chat &lt;instrução&gt;</code> para o WhatsApp do bot (+351 912 101 839).<br />
+            • Também podes escrever simplesmente: <code style="color: var(--accent-cyan);">ordem: &lt;o que queres fazer&gt;</code>.<br />
+            • A ordem é injetada neste chat e executada autonomamente com a CLI do Antigravity, retornando o resultado diretamente para o teu WhatsApp!
+          </div>
+
+          <div id="chat-orders-table-container" style="max-height: 240px; overflow-y: auto;">
+            <div id="chat-orders-list" class="orders-list">
+              <div class="empty-placeholder">A carregar ordens do chat...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. SIMULADOR DE CHAT WHATSAPP DIRETO (TESTE E USO AUTÓNOMO) -->
+      <section class="card chat-card" style="grid-column: span 12;">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">💬</span>
+            <h2>Simulador WhatsApp em Direto (Teste e Envio Autónomo de Ordens)</h2>
+          </div>
+          <div class="card-actions" style="display: flex; gap: 8px; align-items: center;">
+            <select id="sim-sender-select" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: var(--radius-sm); font-size: 0.8rem;">
+              <option value="351912101839">📱 Enviar como: +351 912 101 839 (Teu Telemóvel)</option>
+              <option value="351919115655">🤖 Enviar como: +351 919 115 655 (Conta do Bot)</option>
+            </select>
+            <button id="btn-run-full-test" class="btn btn-sm btn-primary">🧪 Testar 100%</button>
+          </div>
+        </div>
+
+        <div class="card-body" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Quick action chips -->
+          <div class="quick-chips" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="chip-btn" onclick="sendSimText('/ordem Verifica o estado de todos os projetos')">⚡ /ordem (Chat Antigravity)</button>
+            <button class="chip-btn" onclick="sendSimText('/ordens')">📋 /ordens (Histórico)</button>
+            <button class="chip-btn" onclick="sendSimText('/status')">📊 /status</button>
+            <button class="chip-btn" onclick="sendSimText('/print')">📸 /print (Screenshot)</button>
+            <button class="chip-btn" onclick="sendSimText('/projetos')">📂 /projetos</button>
+            <button class="chip-btn" onclick="sendSimText('/ajuda')">❓ /ajuda</button>
+            <button class="chip-btn" onclick="sendSimText('/tarefas')">📋 /tarefas</button>
+          </div>
+
+          <!-- Chat messages area -->
+          <div id="sim-chat-box" style="height: 280px; overflow-y: auto; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="align-self: center; background: rgba(255,255,255,0.06); padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; color: var(--text-dim);">
+              Simulador em tempo real conectado ao roteador de mensagens do WhatsApp
+            </div>
+          </div>
+
+          <!-- Input row -->
+          <form id="sim-chat-form" style="display: flex; gap: 10px;">
+            <input type="text" id="sim-chat-input" placeholder="Escreve uma ordem (ex: /status, /print, /projetos, ou fala com a IA)..." style="flex: 1; padding: 10px 14px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; font-family: inherit; font-size: 0.85rem;" required />
+            <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Enviar Ordem</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- 6. TERMINAL DE LOGS & ATIVIDADE EM TEMPO REAL -->
+      <section class="card logs-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon log-icon">⚡</span>
+            <h2>Consola de Atividade em Tempo Real</h2>
+          </div>
+          <button id="btn-clear-logs" class="btn btn-sm btn-secondary">Limpar</button>
+        </div>
+
+        <div class="card-body log-body">
+          <div id="log-terminal" class="log-terminal">
+            <div class="log-line info">[SISTEMA] Painel de controlo iniciado com sucesso.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODAL DE LOGIN / SEGURANÇA (EMAIL + CÓDIGO 9959) -->
+    <div id="auth-gate-modal" class="modal-backdrop" style="display: none; z-index: 99999; backdrop-filter: blur(14px); background: rgba(10, 15, 29, 0.92); position: fixed; inset: 0; align-items: center; justify-content: center;">
+      <div class="modal-box" style="max-width: 420px; width: 90%; text-align: center; border: 1px solid rgba(59, 130, 246, 0.5); box-shadow: 0 25px 60px rgba(0,0,0,0.9); background: #111827; border-radius: 16px; padding: 28px 24px;">
+        <div style="font-size: 3rem; margin-bottom: 8px;">🔐</div>
+        <h2 style="font-size: 1.35rem; margin-bottom: 6px; color: #fff; font-weight: 800;">Acesso Privado Criptografado</h2>
+        <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 22px; line-height: 1.4;">
+          Este assistente está protegido. Introduz as tuas credenciais de acesso seguro.
+        </p>
+
+        <form id="auth-form" style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; display: block;">Email Autorizado:</label>
+            <input type="email" id="auth-email-input" value="Andre22pinheiro@gmail.com" required style="width: 100%; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-family: inherit; font-size: 0.88rem;" />
+          </div>
+
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; display: block;">Código de Acesso (PIN):</label>
+            <input type="password" id="auth-pin-input" placeholder="Código de 4 dígitos" maxlength="8" required autofocus style="width: 100%; padding: 12px 14px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; font-family: inherit; font-size: 1.2rem; letter-spacing: 6px; text-align: center;" />
+          </div>
+
+          <div id="auth-error-msg" style="display: none; padding: 8px; border-radius: 6px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 0.78rem; text-align: center;"></div>
+
+          <button type="submit" class="btn btn-primary" style="padding: 12px; font-size: 0.95rem; font-weight: 700; width: 100%; margin-top: 6px; border-radius: 8px;">
+            🔓 Entrar no Assistente
+          </button>
+        </form>
+
+        <div style="margin-top: 20px; font-size: 0.72rem; color: var(--text-dim); display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>🛡️</span> Ligação protegida via Cloudflare TLS 1.3
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE DEFINIÇÕES -->
+    <div id="settings-modal" class="modal-backdrop" style="display: none;">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Definições do Assistente</h3>
+          <button id="btn-close-settings" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Número do Proprietário (com indicativo, ex: 351912345678):</label>
+            <input type="text" id="setting-owner-phone" placeholder="Vazio = primeiro a enviar mensagem" />
+            <small>Apenas este número terá controlo do computador via WhatsApp.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Chave Gemini API (Google AI):</label>
+            <input type="password" id="setting-gemini-key" placeholder="AIzaSy..." />
+            <small>Permite que o bot compreenda pedidos em linguagem natural e dê suporte de programação.</small>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="setting-allow-all" />
+              Permitir que qualquer número envie comandos (Apenas para testes)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-save-settings" class="btn btn-primary">Guardar Definições</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

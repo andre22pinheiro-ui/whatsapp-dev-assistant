@@ -1,0 +1,18 @@
+{
+  "receiverPhone": "351912101839",
+  "senderPhone": "351919115655",
+  "allowedNumbers": [
+    "351919115655",
+    "351912101839"
+  ],
+  "port": 3333,
+  "projectsDir": "C:\\Users\\Surface_Dpc\\Desktop\\projectos",
+  "allowAllSenders": true,
+  "ownerPhone": "351919115655",
+  "geminiApiKey": "",
+  "sessionLocked": true,
+  "isDualBotEnabled": true,
+  "enableCloudTunnel": true,
+  "authEmail": "Andre22pinheiro@gmail.com",
+  "authPin": "9959"
+}

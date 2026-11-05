@@ -1,0 +1,25 @@
+{
+  "name": "whatsapp-dev-assistant",
+  "version": "1.0.0",
+  "description": "Assistente Pessoal e de Desenvolvimento Autónomo via WhatsApp (Antigravity, Android Studio e Gestão Pessoal)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "worker": "node scripts/pc-worker.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.12",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3",
+    "systeminformation": "^5.23.5",
+    "@google/generative-ai": "^0.24.1"
+  }
+}

@@ -99,20 +99,7 @@ export class WhatsAppBotInstance extends EventEmitter {
       this.connectionState = "connecting";
       this.emit("status_change", this.getStatus());
 
-      // Se a sessão ainda não estiver registada, limpa ficheiros parciais para evitar 401 imediato no handshake
-      if (fs.existsSync(this.authDir)) {
-        const credsPath = path.join(this.authDir, "creds.json");
-        if (fs.existsSync(credsPath)) {
-          try {
-            const credsData = JSON.parse(fs.readFileSync(credsPath, "utf8"));
-            if (!credsData.registered) {
-              logger.info(`[${this.name}] Credenciais pendentes não registadas detetadas. A limpar ${this.authDir} para novo emparelhamento limpo...`);
-              this.cleanAuthDir();
-            }
-          } catch (e) {}
-        }
-      }
-
+      // Preservar sempre chaves e estado do handshake (NUNCA limpar no arranque para permitir que o handshake de emparelhamento termine sem ser interrompido)
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
       this.sock = makeWASocket({

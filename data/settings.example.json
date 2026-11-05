@@ -11,7 +11,7 @@
   "ownerPhone": "351919115655",
   "geminiApiKey": "",
   "sessionLocked": true,
-  "isDualBotEnabled": true,
+  "isDualBotEnabled": false,
   "enableCloudTunnel": true,
   "authEmail": "Andre22pinheiro@gmail.com",
   "authPin": "9959"

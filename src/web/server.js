@@ -107,7 +107,7 @@ export function createWebServer() {
 
   // Middleware de proteção para todas as rotas da API
   app.use("/api", (req, res, next) => {
-    if (req.path.startsWith("/auth/")) return next();
+    if (req.path.startsWith("/auth/") || req.path === "/mobile-message") return next();
 
     // Permitir rotas de sincronização PC <-> Nuvem protegidas por Token Secreto
     if (req.path.startsWith("/sync/")) {
@@ -148,6 +148,28 @@ export function createWebServer() {
   app.get("/api/cloud-url", async (req, res) => {
     const { cloudTunnel } = await import("../services/cloudTunnelService.js");
     res.json(cloudTunnel.getStatus());
+  });
+
+  // 1.2 ENDPOINT PARA APLICAÇÃO ANDROID NO TELEMÓVEL (BRIDGE NATIVO NOTIFICATIONLISTENER)
+  app.post("/api/mobile-message", async (req, res) => {
+    try {
+      const { sender, text } = req.body || {};
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: "Texto da mensagem em falta." });
+      }
+
+      const senderNumber = sender || config.ownerPhone || "351919115655";
+      logger.info(`📱 [APP MOBILE] Mensagem recebida de ${senderNumber}: "${text}"`);
+
+      const { processMobileMessage } = await import("../whatsapp/messageHandler.js");
+      const reply = await processMobileMessage(senderNumber, text.trim());
+
+      logger.info(`📱 [APP MOBILE] Resposta enviada com sucesso: "${reply ? reply.slice(0, 100) : ''}..."`);
+      return res.json({ success: true, reply: reply || "✅ Mensagem processada pelo assistente." });
+    } catch (err) {
+      logger.error("Erro no processamento do endpoint /api/mobile-message:", err);
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   // 2. ENDPOINT DE PROJETOS

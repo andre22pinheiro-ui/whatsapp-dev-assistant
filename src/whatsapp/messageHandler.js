@@ -1163,7 +1163,32 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
   }
 }
 
+export async function processMobileMessage(sender, text) {
+  const replies = [];
+  const mockSock = {
+    sendMessage: async (jid, content) => {
+      const replyText = typeof content === "string" ? content : (content.text || JSON.stringify(content));
+      if (replyText) replies.push(replyText);
+      return { key: { id: "mobile_" + Date.now() } };
+    }
+  };
+  const cleanSender = (sender || "351919115655").replace(/\D/g, "");
+  const mockMsg = {
+    key: {
+      remoteJid: `${cleanSender}@s.whatsapp.net`,
+      id: "mob_" + Date.now(),
+      fromMe: false
+    },
+    message: {
+      conversation: text
+    }
+  };
+  await handleIncomingMessage(mockSock, mockMsg, new Set());
+  return replies.join("\n\n");
+}
+
 export default {
-  handleIncomingMessage
+  handleIncomingMessage,
+  processMobileMessage
 };
 

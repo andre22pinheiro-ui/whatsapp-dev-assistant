@@ -96,6 +96,7 @@ async function sendHeartbeat() {
       uptimeSeconds: Math.round(os.uptime()),
       agyInstalled: antigravityService.isAgyInstalled(),
       projectsDir: config.projectsDir,
+      projects: androidService.listAllProjects(),
       timestamp: new Date().toISOString()
     });
 

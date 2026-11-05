@@ -10,6 +10,7 @@ import aiService from "../services/aiService.js";
 import cloudTunnel from "../services/cloudTunnelService.js";
 import formatter from "./formatter.js";
 import { recentMessagesStore } from "./client.js";
+import { pcSyncService } from "../services/pcSyncService.js";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
   try {
@@ -142,10 +143,23 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
       }
     }
 
-    // 1. COMANDOS DIRETOS (Iniciados com / ou prefixo)
-    if (text.startsWith(prefix)) {
-      const parts = text.slice(prefix.length).trim().split(" ");
-      const cmd = parts[0].toLowerCase();
+    // 1. COMANDOS DIRETOS (Iniciados com / ou prefixo, ou palavras-chave diretas)
+    let isCommand = text.startsWith(prefix);
+    let commandText = text;
+    if (!isCommand) {
+      const normalized = text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const directKeywords = ["projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud"];
+      const firstWord = normalized.split(/\s+/)[0];
+      if (directKeywords.includes(firstWord)) {
+        isCommand = true;
+        commandText = prefix + text.trim();
+      }
+    }
+
+    if (isCommand) {
+      const parts = commandText.slice(prefix.length).trim().split(" ");
+      const rawCmd = parts[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const cmd = rawCmd;
       const args = parts.slice(1);
       const fullArgs = args.join(" ").trim();
 
@@ -195,7 +209,10 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         case "projetos":
         case "projects":
         case "lista": {
-          const projects = androidService.listAllProjects();
+          let projects = androidService.listAllProjects();
+          if ((!projects || projects.length === 0) && pcSyncService) {
+            projects = pcSyncService.getProjects() || [];
+          }
           return await sendReply(senderJid, { text: formatter.formatProjects(projects) });
         }
 
@@ -203,7 +220,15 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         case "diag":
         case "saude": {
           if (!fullArgs) {
-            const projects = androidService.listAllProjects();
+            let projects = androidService.listAllProjects();
+            if ((!projects || projects.length === 0) && pcSyncService) {
+              projects = pcSyncService.getProjects() || [];
+            }
+            if (!projects || projects.length === 0) {
+              return await sendReply(senderJid, {
+                text: "🏥 *DIAGNÓSTICO DOS PROJETOS*\n━━━━━━━━━━━━━━━━━━━━━━━━\nNenhum projeto encontrado. Quando o teu PC estiver ligado com o agente sincronizador, a lista de projetos e saúde aparecerá aqui."
+              });
+            }
             let summary = "🏥 *DIAGNÓSTICO RÁPIDO DOS PROJETOS:*\n━━━━━━━━━━━━━━━━━━━━━━━━\n";
             for (const p of projects) {
               const diag = androidService.diagnoseProject(p.name);

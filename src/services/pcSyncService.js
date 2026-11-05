@@ -29,6 +29,10 @@ class PcSyncService extends EventEmitter {
     return Date.now() - this.lastHeartbeat < timeoutMs;
   }
 
+  getProjects() {
+    return this.pcInfo?.projects || [];
+  }
+
   getStatus() {
     const isOnline = this.isPcOnline();
     return {

@@ -4,12 +4,14 @@ import logger from "../utils/logger.js";
 import { readData, writeData } from "../utils/storage.js";
 
 let genAI = null;
+let currentApiKey = null;
 
 function getAiClient() {
   const key = config.geminiApiKey;
   if (!key) return null;
-  if (!genAI) {
+  if (!genAI || currentApiKey !== key) {
     genAI = new GoogleGenerativeAI(key);
+    currentApiKey = key;
   }
   return genAI;
 }
@@ -141,6 +143,35 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "ADD_TASK", param: taskText };
   }
 
+  // Deteção rápida de Eventos e Calendário
+  if (
+    lower.startsWith("agenda ") ||
+    lower.startsWith("agendar ") ||
+    lower.startsWith("marca ") ||
+    lower.startsWith("marcar ") ||
+    lower.startsWith("evento ") ||
+    lower.startsWith("adiciona evento ") ||
+    lower.startsWith("adicionar evento ")
+  ) {
+    const eventPhrase = userMessage.replace(/^(agenda|agendar|marca|marcar|evento|adiciona evento|adicionar evento)\s+/i, "").trim();
+    return { type: "action", action: "ADD_EVENT", param: eventPhrase };
+  }
+
+  if (
+    lower === "agenda" ||
+    lower === "calendario" ||
+    lower === "calendário" ||
+    lower === "eventos" ||
+    lower === "ver agenda" ||
+    lower === "ver eventos" ||
+    lower === "o que tenho hoje" ||
+    lower === "o que tenho hoje?" ||
+    lower === "o que tenho marcado" ||
+    lower === "o que tenho marcado?"
+  ) {
+    return { type: "action", action: "LIST_EVENTS" };
+  }
+
   if (
     lower === "ajuda" ||
     lower === "menu" ||
@@ -156,16 +187,18 @@ export async function processNaturalLanguage(userMessage, context = {}) {
       type: "no_key",
       reply:
         "💡 *Comando recebido.*\n" +
-        "Para conversar livremente com IA, podes configurar uma chave Gemini no painel web ou com `/config key <chave>`.\n" +
-        "Comandos diretos disponíveis: `/status`, `/print`, `/projetos`, `/diagnostico <proj>`, `/corrigir <proj>`, `/build <proj>`, `/apk <proj>`."
+        "Para conversar livremente com IA e absorver eventos complexos, podes configurar a tua chave gratuita Gemini no painel web ou com `/config key <chave>`.\n" +
+        "Podes obter a chave em: https://aistudio.google.com/app/apikey\n\n" +
+        "Comandos disponíveis: `/agenda`, `/evento <quando> <o que>`, `/status`, `/projetos`, `/diagnostico <proj>`, `/build <proj>`."
     };
   }
 
   const CANDIDATE_MODELS = [
-    "gemini-flash-lite-latest",
     "gemini-3.8-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-flash-latest"
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite"
   ];
 
   let lastError = null;

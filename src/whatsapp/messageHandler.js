@@ -11,6 +11,7 @@ import cloudTunnel from "../services/cloudTunnelService.js";
 import formatter from "./formatter.js";
 import { recentMessagesStore } from "./client.js";
 import { pcSyncService } from "../services/pcSyncService.js";
+import calendarService from "../services/calendarService.js";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
   try {
@@ -148,7 +149,7 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
     let commandText = text;
     if (!isCommand) {
       const normalized = text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const directKeywords = ["projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud"];
+      const directKeywords = ["projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud", "agenda", "calendario", "eventos", "evento"];
       const firstWord = normalized.split(/\s+/)[0];
       if (directKeywords.includes(firstWord)) {
         isCommand = true;
@@ -585,10 +586,82 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
           });
         }
 
-        case "lembrete":
-        case "evento":
         case "agenda":
-        case "calendario": {
+        case "calendario":
+        case "eventos": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, { text: calendarService.formatAgenda() });
+          }
+          // Se passou texto (ex: /agenda amanhã às 15h Reunião)
+          const parsed = calendarService.parseQuickEventPhrase(fullArgs);
+          const ev = calendarService.addEvent(parsed);
+          const gcalUrl = personalAssistant.generateGoogleCalendarUrl(ev.title, ev.dateTime, ev.durationMinutes);
+          const ics = personalAssistant.generateIcsContent(ev.title, ev.dateTime, ev.durationMinutes);
+
+          let replyText =
+            `📅 *EVENTO ABSORVIDO COM SUCESSO!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 *Título:* _${ev.title}_\n` +
+            `📅 *Data:* *${ev.date}*\n` +
+            `🕒 *Hora:* *${ev.time}*\n\n` +
+            `🔗 *Adicionar ao Google Calendar (1 clique):*\n${gcalUrl}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🔔 _Receberás um lembrete automático no WhatsApp 15 minutos antes!_`;
+
+          await sendReply(senderJid, { text: replyText });
+
+          if (ics) {
+            try {
+              await sendReply(senderJid, {
+                document: Buffer.from(ics, "utf8"),
+                mimetype: "text/calendar",
+                fileName: `${ev.title.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}.ics`,
+                caption: `📅 Evento Google Calendar: *${ev.title}*`
+              });
+            } catch (e) {}
+          }
+          return;
+        }
+
+        case "evento":
+        case "marcar":
+        case "agendar": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `📅 *Como agendar eventos rápidos:*\n\nBasta escreveres:\n\`/evento amanhã às 15h Reunião de obras\`\nou\n\`/evento sexta 10:30 Consulta médica\`\nou simplesmente:\n\`agenda sexta às 16h Dentista\``
+            });
+          }
+          const parsed = calendarService.parseQuickEventPhrase(fullArgs);
+          const ev = calendarService.addEvent(parsed);
+          const gcalUrl = personalAssistant.generateGoogleCalendarUrl(ev.title, ev.dateTime, ev.durationMinutes);
+          const ics = personalAssistant.generateIcsContent(ev.title, ev.dateTime, ev.durationMinutes);
+
+          let replyText =
+            `📅 *EVENTO ABSORVIDO COM SUCESSO!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 *Título:* _${ev.title}_\n` +
+            `📅 *Data:* *${ev.date}*\n` +
+            `🕒 *Hora:* *${ev.time}*\n\n` +
+            `🔗 *Adicionar ao Google Calendar (1 clique):*\n${gcalUrl}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🔔 _Receberás um lembrete automático no WhatsApp 15 minutos antes!_`;
+
+          await sendReply(senderJid, { text: replyText });
+
+          if (ics) {
+            try {
+              await sendReply(senderJid, {
+                document: Buffer.from(ics, "utf8"),
+                mimetype: "text/calendar",
+                fileName: `${ev.title.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}.ics`,
+                caption: `📅 Evento Google Calendar: *${ev.title}*`
+              });
+            } catch (e) {}
+          }
+          return;
+        }
+
+        case "lembrete": {
           const parts = fullArgs.split(" ");
           if (parts.length < 2) {
             return await sendReply(senderJid, {
@@ -744,6 +817,39 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             });
           }
           break;
+        }
+
+        case "ADD_EVENT": {
+          const phrase = aiResult.param || "";
+          const parsed = calendarService.parseQuickEventPhrase(phrase);
+          const ev = calendarService.addEvent(parsed);
+          const gcalUrl = personalAssistant.generateGoogleCalendarUrl(ev.title, ev.dateTime, ev.durationMinutes);
+          const ics = personalAssistant.generateIcsContent(ev.title, ev.dateTime, ev.durationMinutes);
+          let replyText =
+            `📅 *EVENTO ABSORVIDO COM SUCESSO!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 *Título:* _${ev.title}_\n` +
+            `📅 *Data:* *${ev.date}*\n` +
+            `🕒 *Hora:* *${ev.time}*\n\n` +
+            `🔗 *Adicionar ao Google Calendar:*\n${gcalUrl}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🔔 _Receberás um aviso aqui no WhatsApp 15 minutos antes!_`;
+          await sendReply(senderJid, { text: replyText });
+          if (ics) {
+            try {
+              await sendReply(senderJid, {
+                document: Buffer.from(ics, "utf8"),
+                mimetype: "text/calendar",
+                fileName: `${ev.title.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}.ics`,
+                caption: `📅 Evento Google Calendar: *${ev.title}*`
+              });
+            } catch (e) {}
+          }
+          return;
+        }
+
+        case "LIST_EVENTS": {
+          return await sendReply(senderJid, { text: calendarService.formatAgenda() });
         }
 
         case "LIST_PROJECTS": {

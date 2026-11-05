@@ -126,8 +126,11 @@ try {
 // Executar comando no terminal de forma controlada
 export function runCommand(cmdString) {
   return new Promise((resolve) => {
-    logger.info(`A executar comando no PC: "${cmdString}"`);
-    exec(cmdString, { shell: "powershell.exe", cwd: config.projectsDir }, (error, stdout, stderr) => {
+    logger.info(`A executar comando no terminal: "${cmdString}"`);
+    const isWin = process.platform === "win32";
+    const shellCmd = isWin ? "powershell.exe" : "/bin/bash";
+    const workDir = (isWin && fs.existsSync(config.projectsDir)) ? config.projectsDir : config.rootDir;
+    exec(cmdString, { shell: shellCmd, cwd: workDir }, (error, stdout, stderr) => {
       if (error) {
         resolve({
           success: false,

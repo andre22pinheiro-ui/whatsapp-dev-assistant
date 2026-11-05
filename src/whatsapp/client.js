@@ -372,6 +372,23 @@ class DualBotManager extends EventEmitter {
         logger.error("Erro ao enviar notificação de lembrete:", err);
       }
     });
+
+    import("../services/calendarService.js").then(({ default: calendarService }) => {
+      calendarService.setCalendarNotifier(async (ev) => {
+        try {
+          const targetNumber = (config.senderPhone || config.receiverPhone || "351919115655").replace(/\D/g, "");
+          const targetJid = `${targetNumber}@s.whatsapp.net`;
+          const activeBot = (this.sender.connectionState === "connected") ? this.sender : this.receiver;
+          if (activeBot.connectionState === "connected") {
+            await activeBot.sendMessage(targetJid, { text: ev.text });
+            logger.info(`Notificação de evento enviada via WhatsApp para ${targetJid}`);
+          }
+        } catch (err) {
+          logger.error("Erro ao enviar notificação de evento de calendário:", err);
+        }
+      });
+      calendarService.startCalendarScheduler();
+    });
   }
 
   async sendMessage(targetJid, content) {

@@ -6,3 +6,4 @@ echo  Iniciando Agente Local do PC (Worker)...
 echo ========================================================
 node scripts/pc-worker.js
 pause
+

@@ -16,12 +16,21 @@ class CloudTunnelService extends EventEmitter {
   }
 
   isCloudflaredAvailable() {
-    const cfPath = config.cloudflaredPath || "C:\\Users\\Surface_Dpc\\Desktop\\projectos\\PC-Remote-Portatil\\cloudflared.exe";
-    return fs.existsSync(cfPath);
+    const cfPath = this.getCloudflaredPath();
+    if (cfPath === "cloudflared") return true;
+    return Boolean(cfPath && fs.existsSync(cfPath));
   }
 
   getCloudflaredPath() {
-    return config.cloudflaredPath || "C:\\Users\\Surface_Dpc\\Desktop\\projectos\\PC-Remote-Portatil\\cloudflared.exe";
+    if (config.cloudflaredPath && fs.existsSync(config.cloudflaredPath)) {
+      return config.cloudflaredPath;
+    }
+    // No Linux ou se estiver instalado no PATH do sistema
+    if (process.platform !== "win32") {
+      return "cloudflared";
+    }
+    const defaultWin = "C:\\Users\\Surface_Dpc\\Desktop\\projectos\\PC-Remote-Portatil\\cloudflared.exe";
+    return fs.existsSync(defaultWin) ? defaultWin : null;
   }
 
   getCloudUrl() {
@@ -41,9 +50,9 @@ class CloudTunnelService extends EventEmitter {
     const targetPort = port || config.port || 3333;
     const cfPath = this.getCloudflaredPath();
 
-    if (!fs.existsSync(cfPath)) {
+    if (!cfPath || (cfPath !== "cloudflared" && !fs.existsSync(cfPath))) {
       this.status = "error";
-      this.errorMsg = `cloudflared.exe não encontrado em ${cfPath}`;
+      this.errorMsg = `cloudflared não encontrado no sistema`;
       logger.warn(`[NUVEM] ${this.errorMsg}`);
       return false;
     }

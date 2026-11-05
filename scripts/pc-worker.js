@@ -219,3 +219,4 @@ async function main() {
 main().catch((err) => {
   logger.error("Erro fatal no Agente Local do PC:", err);
 });
+

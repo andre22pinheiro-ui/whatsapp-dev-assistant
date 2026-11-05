@@ -34,3 +34,4 @@ echo "✅ SERVIDOR CONFIGURADO COM SUCESSO!"
 echo "Para ver os logs e o QR Code do WhatsApp: pm2 logs whatsapp-assistant"
 echo "O Web Dashboard está disponível em: http://SEU_IP_PUBLICO:3333"
 echo "========================================================================"
+

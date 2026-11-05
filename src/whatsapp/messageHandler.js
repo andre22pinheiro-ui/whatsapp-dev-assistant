@@ -12,6 +12,7 @@ import formatter from "./formatter.js";
 import { recentMessagesStore } from "./client.js";
 import { pcSyncService } from "../services/pcSyncService.js";
 import calendarService from "../services/calendarService.js";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
   try {
@@ -78,24 +79,8 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
       }
     };
 
-    // Extrair texto da mensagem
-    const messageContent =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      msg.message.imageMessage?.caption ||
-      "";
-
-    let text = messageContent.trim();
-    if (!text) return;
-
-    // Evitar processamento de mensagens enviadas pelo próprio bot (banners ou respostas)
-    if (text.includes("WHATSAPP DEV & PERSONAL ASSISTANT") || text.includes("🚀 *WHATSAPP DEV ASSISTANT ATIVO")) {
-      return;
-    }
-
-    // Extrair número limpo
+    // Extrair número limpo do remetente
     const senderNumber = senderJid.replace("@s.whatsapp.net", "");
-    logger.info(`📥 Mensagem recebida de ${senderNumber} (fromMe: ${!!msg.key.fromMe}): "${text}"`);
 
     // SEGURANÇA: Verificar se é o utilizador autorizado (912 101 839 ou 919 115 655)
     const cleanSender = senderNumber.replace(/\D/g, "");
@@ -118,6 +103,61 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
       });
       return;
     }
+
+    // Extrair texto base da mensagem
+    const messageContent =
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      msg.message.imageMessage?.caption ||
+      "";
+
+    let text = messageContent.trim();
+
+    // Suporte a Mensagens de Voz (Áudio WhatsApp)
+    const hasAudio = !!msg.message.audioMessage;
+    if (hasAudio && config.geminiApiKey) {
+      try {
+        await sendReply(senderJid, { text: "🎙️ _A ouvir mensagem de voz..._" });
+        const audioBuffer = await downloadMediaMessage(msg, "buffer", {}, { logger });
+        if (audioBuffer && audioBuffer.length > 0) {
+          const mime = msg.message.audioMessage.mimetype || "audio/ogg; codecs=opus";
+          const transcribed = await aiService.transcribeAudio(audioBuffer, mime);
+          if (transcribed && transcribed.trim()) {
+            logger.info(`🎙️ Áudio transcrito: "${transcribed}"`);
+            await sendReply(senderJid, { text: `🎙️ _"${transcribed}"_` });
+            text = transcribed.trim();
+          }
+        }
+      } catch (audioErr) {
+        logger.error("Erro ao transcrever áudio:", audioErr);
+      }
+    }
+
+    // Suporte a Fotografias e Imagens (Visão Computacional)
+    const hasImage = !!msg.message.imageMessage;
+    if (hasImage && config.geminiApiKey && (!text || text.length < 40)) {
+      try {
+        await sendReply(senderJid, { text: "👁️ _A analisar imagem com IA..._" });
+        const imgBuffer = await downloadMediaMessage(msg, "buffer", {}, { logger });
+        if (imgBuffer && imgBuffer.length > 0) {
+          const mime = msg.message.imageMessage.mimetype || "image/jpeg";
+          const prompt = text || "Analisa detalhadamente esta imagem ou código/erro em português de Portugal. Apresenta o diagnóstico e soluções práticas imediatas.";
+          const visionReply = await aiService.analyzeImage(imgBuffer, mime, prompt);
+          return await sendReply(senderJid, { text: visionReply });
+        }
+      } catch (imgErr) {
+        logger.error("Erro na análise de imagem:", imgErr);
+      }
+    }
+
+    if (!text) return;
+
+    // Evitar processamento de mensagens enviadas pelo próprio bot (banners ou respostas)
+    if (text.includes("WHATSAPP DEV & PERSONAL ASSISTANT") || text.includes("🚀 *WHATSAPP DEV ASSISTANT ATIVO")) {
+      return;
+    }
+
+    logger.info(`📥 Mensagem recebida de ${senderNumber} (fromMe: ${!!msg.key.fromMe}): "${text}"`);
 
     const prefix = config.prefix;
 
@@ -718,6 +758,78 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
           });
         }
 
+        case "nota":
+        case "anotar": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Como guardar uma nota:*\n\`${prefix}nota <texto>\`\nExemplo: \`${prefix}nota Medições sala: 24m2, 12 placas standard\``
+            });
+          }
+          const note = personalAssistant.addNote("Nota", fullArgs);
+          return await sendReply(senderJid, {
+            text: `📝 *NOTA GUARDADA COM SUCESSO!*\n━━━━━━━━━━━━━━━━━━━━━━━━\n"${note.content}"\n\n💡 _Para rever as tuas notas: \`${prefix}notas\`_`
+          });
+        }
+
+        case "notas": {
+          const notes = personalAssistant.getNotes();
+          if (!notes || notes.length === 0) {
+            return await sendReply(senderJid, {
+              text: `📝 *BLOCO DE NOTAS*\n━━━━━━━━━━━━━━━━━━━━━━━━\nNenhuma nota guardada ainda.\nUsa \`${prefix}nota <texto>\` para anotar ideias ou dados rápidos.`
+            });
+          }
+          let noteText = `📝 *AS TUAS NOTAS GUARDADAS (${notes.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          notes.slice(-8).reverse().forEach((n, i) => {
+            const dateStr = n.createdAt ? new Date(n.createdAt).toLocaleDateString("pt-PT") : "";
+            noteText += `${i + 1}. [_${dateStr}_] ${n.content}\n\n`;
+          });
+          noteText += `━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Para nova nota: \`${prefix}nota <texto>\`_`;
+          return await sendReply(senderJid, { text: noteText });
+        }
+
+        case "cancelar-evento":
+        case "remover-evento":
+        case "apagar-evento": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o ID do evento a cancelar.*\nExemplo: \`${prefix}cancelar-evento 1234\``
+            });
+          }
+          const removed = calendarService.deleteEvent(fullArgs);
+          if (removed) {
+            return await sendReply(senderJid, { text: `🗑️ *Evento #${fullArgs} cancelado com sucesso da tua agenda!*` });
+          } else {
+            return await sendReply(senderJid, { text: `❌ Evento não encontrado com o ID \`${fullArgs}\`. Envia \`/agenda\` para ver os IDs.` });
+          }
+        }
+
+        case "atualizar":
+        case "update": {
+          await sendReply(senderJid, { text: "🔄 *A atualizar assistente a partir do GitHub...*" });
+          try {
+            const { execSync } = await import("child_process");
+            const pullOut = execSync("git pull origin main", { cwd: config.rootDir, encoding: "utf8" });
+            await sendReply(senderJid, {
+              text: `✅ *Atualização concluída:*\n\`\`\`${pullOut.trim().slice(0, 300)}\`\`\`\n⚡ A reiniciar serviço para aplicar...`
+            });
+            setTimeout(() => {
+              process.exit(0);
+            }, 1000);
+          } catch (gitErr) {
+            await sendReply(senderJid, { text: `❌ Erro ao atualizar via Git: ${gitErr.message}` });
+          }
+          return;
+        }
+
+        case "reiniciar":
+        case "restart": {
+          await sendReply(senderJid, { text: "⚡ *A reiniciar o serviço do assistente...* Voltará a responder dentro de 5 segundos." });
+          setTimeout(() => {
+            process.exit(0);
+          }, 800);
+          return;
+        }
+
         case "config": {
           if (args[0] === "key" && args[1]) {
             config.geminiApiKey = args[1];
@@ -855,6 +967,30 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         case "LIST_PROJECTS": {
           const pList = androidService.listAllProjects();
           return await sendReply(senderJid, { text: formatter.formatProjects(pList) });
+        }
+
+        case "ADD_NOTE": {
+          const noteText = aiResult.param || "";
+          const note = personalAssistant.addNote("Nota", noteText);
+          return await sendReply(senderJid, {
+            text: `📝 *NOTA GUARDADA COM SUCESSO!*\n━━━━━━━━━━━━━━━━━━━━━━━━\n"${note.content}"\n\n💡 _Para rever as tuas notas: \`${prefix}notas\`_`
+          });
+        }
+
+        case "LIST_NOTES": {
+          const notes = personalAssistant.getNotes();
+          if (!notes || notes.length === 0) {
+            return await sendReply(senderJid, {
+              text: `📝 *BLOCO DE NOTAS*\n━━━━━━━━━━━━━━━━━━━━━━━━\nNenhuma nota guardada ainda.\nUsa \`${prefix}nota <texto>\` para guardar apontamentos.`
+            });
+          }
+          let noteText = `📝 *AS TUAS NOTAS GUARDADAS (${notes.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          notes.slice(-8).reverse().forEach((n, i) => {
+            const dateStr = n.createdAt ? new Date(n.createdAt).toLocaleDateString("pt-PT") : "";
+            noteText += `${i + 1}. [_${dateStr}_] ${n.content}\n\n`;
+          });
+          noteText += `━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Para nova nota: \`${prefix}nota <texto>\`_`;
+          return await sendReply(senderJid, { text: noteText });
         }
 
         case "HELP": {

@@ -172,6 +172,26 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "LIST_EVENTS" };
   }
 
+  // Deteção rápida de Notas
+  if (
+    lower.startsWith("nota ") ||
+    lower.startsWith("anota ") ||
+    lower.startsWith("aponta ") ||
+    lower.startsWith("apontar ")
+  ) {
+    const noteText = userMessage.replace(/^(nota|anota|aponta|apontar)\s+/i, "").trim();
+    return { type: "action", action: "ADD_NOTE", param: noteText };
+  }
+
+  if (
+    lower === "notas" ||
+    lower === "ver notas" ||
+    lower === "as minhas notas" ||
+    lower === "bloco de notas"
+  ) {
+    return { type: "action", action: "LIST_NOTES" };
+  }
+
   if (
     lower === "ajuda" ||
     lower === "menu" ||
@@ -248,8 +268,85 @@ Se for conversa geral, responda com texto útil e natural.
   };
 }
 
+// Transcrição de áudios e mensagens de voz do WhatsApp
+export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
+  const client = getAiClient();
+  if (!client) return null;
+
+  const cleanMime = mimeType.split(";")[0].trim();
+  const base64Data = audioBuffer.toString("base64");
+
+  const CANDIDATE_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest"
+  ];
+
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const model = client.getGenerativeModel({ model: modelName });
+      const prompt = "Transcreve fielmente esta mensagem de áudio em português de Portugal. Devolve APENAS o texto falado de forma limpa, sem introduções nem aspas.";
+      const res = await model.generateContent([
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: cleanMime
+          }
+        },
+        prompt
+      ]);
+      const text = res.response.text().trim();
+      if (text) return text;
+    } catch (err) {
+      logger.warn(`Tentativa de transcrição com ${modelName} falhou: ${err.message}`);
+    }
+  }
+  return null;
+}
+
+// Análise multimodal de imagens, capturas de ecrã ou código
+export async function analyzeImage(imageBuffer, mimeType = "image/jpeg", userPrompt = "") {
+  const client = getAiClient();
+  if (!client) return "⚠️ Chave Gemini não configurada para análise de imagem.";
+
+  const cleanMime = mimeType.split(";")[0].trim();
+  const base64Data = imageBuffer.toString("base64");
+
+  const CANDIDATE_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest"
+  ];
+
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelName,
+        systemInstruction: "Você é um assistente técnico e de engenharia sénior. Analise imagens, capturas de ecrã de código, mensagens de erro, relatórios ou desenhos e responda sempre em português de Portugal de forma direta, clara e com soluções práticas."
+      });
+      const prompt = userPrompt || "Analisa esta imagem e descreve o que contém, identificando eventuais problemas ou pontos de ação importantes.";
+      const res = await model.generateContent([
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: cleanMime
+          }
+        },
+        prompt
+      ]);
+      const text = res.response.text().trim();
+      if (text) return text;
+    } catch (err) {
+      logger.warn(`Tentativa de análise visual com ${modelName} falhou: ${err.message}`);
+    }
+  }
+  return "❌ Não foi possível analisar a imagem no momento. Tenta novamente dentro de alguns segundos.";
+}
+
 export default {
   processNaturalLanguage,
+  transcribeAudio,
+  analyzeImage,
   getLearnedPatterns,
   learnPattern
 };

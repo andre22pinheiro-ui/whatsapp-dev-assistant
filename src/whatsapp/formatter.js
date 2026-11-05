@@ -2,46 +2,53 @@
 
 export function formatHelp(prefix = "/") {
   return `
-🤖 *ASSISTENTE DE DESENVOLVIMENTO & PESSOAL (DUAL-BOT)*
+🤖 *WHATSAPP DEV & PERSONAL ASSISTANT 24/7*
 ━━━━━━━━━━━━━━━━━━━━━━━━
-👋 Olá! Estou conectado ao teu computador e pronto para diagnosticar, compilar e reparar os teus projetos.
+👋 Olá, André! Estou 100% conectado na nuvem e sincronizado com o teu Surface Pro.
 
-🛠️ *GESTÃO & AUTO-CURA DE PROJETOS:*
-• \`${prefix}projetos\` - Lista projetos em Desktop\\projectos
-• \`${prefix}diagnostico <proj>\` - Diagnostica problemas e saúde do projeto
-• \`${prefix}corrigir <proj>\` - Executa auto-reparação estrutural e limpa bloqueios
-• \`${prefix}build <proj>\` - Compila APK Debug (Capacitor ou Android Nativo)
-• \`${prefix}apk <proj>\` - Envia o último APK para instalar no telemóvel
-• \`${prefix}studio <proj>\` - Abre o projeto no Android Studio
-• \`${prefix}flashscore\` - Confirmação e dados oficiais de jogos via Flashscore.pt
+🛠️ *PROJETOS ANDROID & DEV:*
+• \`${prefix}projetos\` - Lista os 8 projetos sincronizados do Surface
+• \`${prefix}diagnostico <proj>\` - Saúde e diagnóstico de ficheiros Gradle/Manifest
+• \`${prefix}corrigir <proj>\` - Auto-cura de erros e dependências
+• \`${prefix}build <proj>\` - Compila APK Debug e envia no WhatsApp
+• \`${prefix}release <proj>\` - Compila APK de Produção (Release)
+• \`${prefix}apk <proj>\` - Envia o último APK pronto para instalar
+• \`${prefix}studio <proj>\` - Abre o projeto no Android Studio do PC
 
-🧠 *APRENDIZAGEM CONTÍNUA:*
-• \`${prefix}aprender <quando disser X> = <fazer Y>\` - Ensina atalhos e padrões
-• \`${prefix}aprendizados\` - Lista comandos aprendidos
+📅 *CALENDÁRIO & GOOGLE CALENDAR:*
+• \`${prefix}agenda\` - Lista os teus compromissos organizados
+• \`${prefix}evento <quando> <o que>\` - Absorve evento imediato
+  _Ex: "agenda amanhã às 15h Reunião" ou "marca sexta 10:30 Dentista"_
+  *(Gera link de 1 clique Google Calendar, ficheiro .ics e aviso 15 min antes)*
+• \`${prefix}lembrete <tempo> <texto>\` - Alarme no WhatsApp (ex: \`${prefix}lembrete 20m Ligar engenheiro\`)
 
-⚡ *ANTIGRAVITY CODING AI & CHAT BRIDGE:*
-• \`${prefix}ordem <instrução>\` - Adiciona e executa ordem no Chat Antigravity
-• \`${prefix}ordem <proj> : <instrução>\` - Ordem focada num projeto específico
-• \`${prefix}ordens\` - Lista as ordens recentes do Chat
-• \`${prefix}chat <instrução>\` - Atalho direto para ordens no Chat
-• \`${prefix}agy <prompt>\` - Executa tarefa no Antigravity CLI
-
-💻 *CONTROLO DO COMPUTADOR & NUVEM:*
-• \`${prefix}nuvem\` - Link público HTTPS de acesso ao painel a partir de qualquer rede
-• \`${prefix}status\` ou \`${prefix}pc\` - CPU, RAM, bateria, disco
-• \`${prefix}print\` ou \`${prefix}screenshot\` - Foto do ecrã do PC
-• \`${prefix}cmd <comando>\` - Executa comando no terminal PowerShell
-
-📋 *GESTOR PESSOAL:*
-• \`${prefix}tarefa <texto>\` - Adiciona uma nova tarefa
-• \`${prefix}tarefas\` - Lista as tarefas pendentes
+📋 *TAREFAS & NOTAS RÁPIDAS:*
+• \`${prefix}tarefa <texto>\` - Adiciona nova tarefa à tua lista
+• \`${prefix}tarefas\` - Lista de tarefas pendentes
 • \`${prefix}feita <id>\` - Marca tarefa como concluída
-• \`${prefix}lembrete <tempo> <texto>\` - Agenda lembrete e cria evento para o Google Calendar
+• \`${prefix}nota <texto>\` - Bloco de notas para medições, ideias e dados de obra
+• \`${prefix}notas\` - Consulta as tuas últimas notas guardadas
 
-💬 *CONVERSA COM IA:*
-Podes também falar normalmente comigo!
-_Ex: "Como está o uso de memória do meu PC?", "Diagnostica o matchpro" ou "Compila o APK do pladur-pro"._
+💻 *CONTROLO SURFACE PRO & NUVEM:*
+• \`${prefix}status\` ou \`${prefix}pc\` - CPU, RAM, Bateria do Surface, Disco, Uptime
+• \`${prefix}print\` - Captura de ecrã em direto do portátil
+• \`${prefix}cmd <comando>\` - Executa comando no terminal do sistema
+• \`${prefix}nuvem\` - Link seguro do Painel Web (Dashboard)
+
+⚡ *AGENTE AUTÓNOMO ANTIGRAVITY (AGY):*
+• \`${prefix}ordem <instrução>\` - Executa código e tarefas no PC com o AGY
+• \`${prefix}ordens\` - Histórico e estado das ordens executadas
+
+🎙️ *MULTIMODALIDADE (ÁUDIO & FOTOS):*
+• Podes enviar *mensagens de áudio* (voz) e o bot transcreve e age!
+• Podes enviar *fotos/capturas* de erros ou documentos para análise com IA!
+
+⚙️ *DEFINIÇÕES & IA:*
+• \`${prefix}config\` - Estado do sistema e chave Gemini
+• \`${prefix}config key <chave>\` - Configura ou atualiza a chave Gemini
+• \`${prefix}flashscore\` - Resultados e confirmação em direto de jogos oficiais
 ━━━━━━━━━━━━━━━━━━━━━━━━
+💡 _Podes falar normalmente por voz ou texto em português sem usar barras!_
 `;
 }
 

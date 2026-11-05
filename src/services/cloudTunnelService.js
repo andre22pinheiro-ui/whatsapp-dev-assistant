@@ -95,8 +95,8 @@ class CloudTunnelService extends EventEmitter {
         this.status = "stopped";
         this.cloudUrl = null;
 
-        // Auto-reconectar após 10s se não foi intencional
-        if (code !== 0 && !this.manualStop) {
+        // Auto-reconectar após 10s se não foi intencional e o binário existe
+        if (code !== 0 && !this.manualStop && !this.missingBinary) {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = setTimeout(() => {
             logger.info("[NUVEM] A restabelecer Túnel Cloudflare...");
@@ -108,7 +108,12 @@ class CloudTunnelService extends EventEmitter {
       this.process.on("error", (err) => {
         this.status = "error";
         this.errorMsg = err.message;
-        logger.error(`[NUVEM] Erro no processo Cloudflare: ${err.message}`);
+        if (err.code === "ENOENT" || err.message.includes("ENOENT")) {
+          this.missingBinary = true;
+          logger.info(`[NUVEM] cloudflared não está instalado nesta máquina. Túnel ignorado (usar IP direto ou porta 3333).`);
+        } else {
+          logger.error(`[NUVEM] Erro no processo Cloudflare: ${err.message}`);
+        }
       });
 
       return true;

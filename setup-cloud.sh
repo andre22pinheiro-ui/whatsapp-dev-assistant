@@ -21,6 +21,12 @@ sudo ufw allow 3333/tcp || true
 sudo ufw --force enable || true
 
 echo "📥 [4/5] A instalar dependências do projeto..."
+if [ ! -f data/settings.json ] && [ -f data/settings.example.json ]; then
+  cp data/settings.example.json data/settings.json
+fi
+if [ ! -f .env ] && [ -f .env.example ]; then
+  cp .env.example .env
+fi
 npm install --omit=dev
 
 echo "⚙️ [5/5] A preparar arranque 24/7 com PM2..."

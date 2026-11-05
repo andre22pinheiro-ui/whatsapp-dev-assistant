@@ -61,7 +61,7 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || settings.geminiApiKey || "",
   prefix: process.env.BOT_PREFIX || settings.prefix || "/",
   allowAllSenders: settings.allowAllSenders !== undefined ? settings.allowAllSenders : true,
-  isDualBotEnabled: settings.isDualBotEnabled !== undefined ? settings.isDualBotEnabled : false,
+  isDualBotEnabled: false, // Forçado a false: Sempre 1 bot unificado na nuvem (+351912101839)
   sessionLocked: settings.sessionLocked !== undefined ? settings.sessionLocked : false,
   authEmail: process.env.AUTH_EMAIL || settings.authEmail || "Andre22pinheiro@gmail.com",
   authPin: process.env.AUTH_PIN || settings.authPin || "9959",

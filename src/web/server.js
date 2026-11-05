@@ -293,10 +293,14 @@ export function createWebServer() {
       const pythonCmd = process.platform === "win32" ? "python" : "python3";
       execSync(`${pythonCmd} -c "import zipfile, sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "${zipPath}" "${targetDir}"`);
 
-      logger.info(`📦 Sessão (${target || "receiver"}) importada com sucesso do PC! A reconectar WhatsApp...`);
-      await whatsapp.reconnect("all", false);
+      saveSettings({ isDualBotEnabled: false, sessionLocked: true });
 
-      res.json({ success: true, message: "Sessão importada com sucesso! WhatsApp reconectado." });
+      logger.info(`📦 Sessão (${target || "receiver"}) importada com sucesso do PC! A reiniciar processo para aplicar ligação direta...`);
+      res.json({ success: true, message: "Sessão importada com sucesso! A reiniciar aplicação..." });
+
+      setTimeout(() => {
+        process.exit(0);
+      }, 800);
     } catch (e) {
       logger.error("Erro ao importar sessão:", e);
       res.status(500).json({ error: e.message });

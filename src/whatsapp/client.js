@@ -138,10 +138,18 @@ export class WhatsAppBotInstance extends EventEmitter {
       this.sock.ev.on("creds.update", saveCreds);
 
       // Se já estiver registado na pasta de autenticação, reutiliza a sessão sem pedir novos códigos
-      const isAlreadyLinked = Boolean(state.creds?.registered && state.creds?.me?.id);
+      let isAlreadyLinked = Boolean(state.creds?.registered && state.creds?.me?.id);
+      if (!isAlreadyLinked && fs.existsSync(path.join(this.authDir, "creds.json"))) {
+        try {
+          const rawCreds = JSON.parse(fs.readFileSync(path.join(this.authDir, "creds.json"), "utf8"));
+          if (rawCreds?.registered) {
+            isAlreadyLinked = true;
+          }
+        } catch (e) {}
+      }
       this.isRegistered = isAlreadyLinked;
       if (isAlreadyLinked) {
-        logger.info(`🔒 [${this.name}] Sessão WhatsApp registada encontrada (+${state.creds.me?.id || this.phone}). A restabelecer ligação fixa.`);
+        logger.info(`🔒 [${this.name}] Sessão WhatsApp registada encontrada (+${state.creds?.me?.id || this.phone}). A restabelecer ligação fixa.`);
         this.pairingCode = null;
       } else if (this.phone && !this.pairingCode) {
         // Apenas solicita código de emparelhamento no primeiro registo se ainda não tiver emparelhado
@@ -217,9 +225,9 @@ export class WhatsAppBotInstance extends EventEmitter {
           logger.warn(`[${this.name}] Conexão fechada. Código: ${statusCode}`);
           this.emit("status_change", this.getStatus());
 
-          if (isLoggedOut && this.isRegistered) {
-            // Apenas limpa se já esteve registado e o utilizador desvinculou manualmente no telemóvel
-            logger.warn(`[${this.name}] Sessão desvinculada manualmente pelo utilizador. A limpar dados para novo emparelhamento...`);
+          if (isLoggedOut) {
+            // Apenas limpa se WhatsApp reportou 401 / desvinculado no telemóvel
+            logger.warn(`[${this.name}] Sessão desvinculada no telemóvel (401). A limpar dados para novo emparelhamento...`);
             this.cleanAuthDir();
             this.isRegistered = false;
             this.userInfo = null;
@@ -229,24 +237,11 @@ export class WhatsAppBotInstance extends EventEmitter {
               this.isStarting = false;
               this.start(onMessageReceived);
             }, 5000);
-          } else if (!this.isRegistered) {
-            // Sessão ainda não emparelhada: se tomou 401 ou fechou, limpa auth pendente para renovar socket ativo
-            this.connectionState = "qr_ready";
-            logger.info(`[${this.name}] Conexão de emparelhamento fechada (Código: ${statusCode}). A limpar credenciais pendentes e restabelecer socket...`);
-            this.cleanAuthDir();
-            this.pairingCode = null;
-            this.qrCodeDataUrl = null;
-            setTimeout(() => {
-              if (this.connectionState !== "connected" && !this.isRegistered) {
-                this.isStarting = false;
-                this.start(onMessageReceived);
-              }
-            }, 4000);
           } else {
-            // Reconnect suave preservando os dados da sessão (código 515, 408, etc.)
+            // Qualquer outro código (408 timeout, 515 restart, etc.): PRESERVA os ficheiros de sessão e reconecta suavemente
             this.reconnectAttempts++;
             const delay = statusCode === 515 ? 1500 : Math.min(this.reconnectAttempts * 2000, 10000);
-            logger.info(`[${this.name}] A reconectar sessão guardada em ${delay / 1000}s (Código: ${statusCode})...`);
+            logger.info(`[${this.name}] A reconectar sessão em ${delay / 1000}s (Código: ${statusCode})...`);
             setTimeout(() => {
               this.isStarting = false;
               this.start(onMessageReceived);

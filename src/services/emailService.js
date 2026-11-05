@@ -368,3 +368,4 @@ Formate em Markdown para WhatsApp em português de Portugal.
 
 export const emailService = new EmailService();
 export default emailService;
+

@@ -387,6 +387,28 @@ export function createWebServer() {
     }
   });
 
+  // 9.1 GERAR NOVO CÓDIGO DE EMPARELHAMENTO FRESCO
+  app.post("/api/pairing-code", async (req, res) => {
+    try {
+      const activeBot = whatsapp.receiver || whatsapp.sender;
+      if (activeBot.connectionState === "connected") {
+        return res.json({ success: true, connected: true, message: "Já conectado" });
+      }
+      if (!activeBot.sock) {
+        return res.status(500).json({ success: false, error: "Socket não inicializado" });
+      }
+      const cleanPhone = (activeBot.phone || config.receiverPhone || "351912101839").replace(/\D/g, "");
+      activeBot.pairingCode = null;
+      const code = await activeBot.sock.requestPairingCode(cleanPhone);
+      activeBot.pairingCode = code;
+      logger.info(`🔢 Novo código de emparelhamento gerado a pedido: ${code}`);
+      res.json({ success: true, pairingCode: code, phone: cleanPhone });
+    } catch (e) {
+      logger.error("Erro ao gerar novo pairing code:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // 10. SIMULADOR DE CHAT INTERATIVO (TESTES AUTÓNOMOS E USO VIA BROWSER)
   app.post("/api/chat/send", async (req, res) => {
     const { text, fromPhone } = req.body;

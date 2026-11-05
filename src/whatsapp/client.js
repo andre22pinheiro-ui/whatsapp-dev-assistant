@@ -151,21 +151,22 @@ export class WhatsAppBotInstance extends EventEmitter {
       if (isAlreadyLinked) {
         logger.info(`🔒 [${this.name}] Sessão WhatsApp registada encontrada (+${state.creds?.me?.id || this.phone}). A restabelecer ligação fixa.`);
         this.pairingCode = null;
-      } else if (this.phone && !this.pairingCode) {
-        // Apenas solicita código de emparelhamento no primeiro registo se ainda não tiver emparelhado
+      } else if (this.phone) {
+        // Solicita sempre um código fresco de emparelhamento quando não há sessão registada
         setTimeout(async () => {
           try {
-            if (this.connectionState === "connected" || !this.sock || this.pairingCode) return;
+            if (this.connectionState === "connected" || !this.sock) return;
             const cleanPhone = this.phone.replace(/\D/g, "");
+            this.pairingCode = null;
             const code = await this.sock.requestPairingCode(cleanPhone);
             this.pairingCode = code;
-            logger.info(`🔢 [${this.name}] CÓDIGO DE EMPARELHAMENTO PARA +${cleanPhone}: ${code}`);
+            logger.info(`🔢 [${this.name}] NOVO CÓDIGO DE EMPARELHAMENTO PARA +${cleanPhone}: ${code}`);
             this.emit("pairing_code", { code, phone: cleanPhone, name: this.name });
             this.emit("status_change", this.getStatus());
           } catch (err) {
             logger.warn(`[${this.name}] Aviso pairing code: ` + err.message);
           }
-        }, 3000);
+        }, 2000);
       }
 
       // Evento de atualização da conexão
@@ -240,7 +241,8 @@ export class WhatsAppBotInstance extends EventEmitter {
           } else {
             // Qualquer outro código (408 timeout, 515 restart, etc.): PRESERVA os ficheiros de sessão e reconecta suavemente
             this.reconnectAttempts++;
-            const delay = statusCode === 515 ? 1500 : Math.min(this.reconnectAttempts * 2000, 10000);
+            this.pairingCode = null;
+            const delay = statusCode === 515 ? 1500 : Math.min(this.reconnectAttempts * 2000, 8000);
             logger.info(`[${this.name}] A reconectar sessão em ${delay / 1000}s (Código: ${statusCode})...`);
             setTimeout(() => {
               this.isStarting = false;

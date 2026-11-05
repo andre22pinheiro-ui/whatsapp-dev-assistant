@@ -138,21 +138,8 @@ export class WhatsAppBotInstance extends EventEmitter {
       if (isAlreadyLinked) {
         logger.info(`🔒 [${this.name}] Sessão WhatsApp registada encontrada (+${state.creds?.me?.id || this.phone}). A restabelecer ligação fixa.`);
         this.pairingCode = null;
-      } else if (this.phone && !this.pairingCode && this.reconnectAttempts === 0) {
-        // Solicita código de emparelhamento no arranque inicial apenas (nunca durante reconexões para não abortar o handshake em curso)
-        setTimeout(async () => {
-          try {
-            if (this.connectionState === "connected" || !this.sock || this.pairingCode) return;
-            const cleanPhone = this.phone.replace(/\D/g, "");
-            const code = await this.sock.requestPairingCode(cleanPhone);
-            this.pairingCode = code;
-            logger.info(`🔢 [${this.name}] CÓDIGO DE EMPARELHAMENTO ESTÁVEL PARA +${cleanPhone}: ${code}`);
-            this.emit("pairing_code", { code, phone: cleanPhone, name: this.name });
-            this.emit("status_change", this.getStatus());
-          } catch (err) {
-            logger.warn(`[${this.name}] Aviso pairing code: ` + err.message);
-          }
-        }, 3000);
+      } else {
+        logger.info(`📱 [${this.name}] Pronto para emparelhar. Código QR ativo (ou utilize código de 8 dígitos sob pedido).`);
       }
 
       // Evento de atualização da conexão
@@ -223,7 +210,7 @@ export class WhatsAppBotInstance extends EventEmitter {
             setTimeout(() => {
               this.isStarting = false;
               this.start(onMessageReceived);
-            }, 5000);
+            }, 8000);
           } else {
             // Qualquer outro código (408 timeout, 515 restart, etc.): PRESERVA os ficheiros de sessão e reconecta suavemente
             this.reconnectAttempts++;

@@ -100,6 +100,32 @@ class TelegramService {
     return null;
   }
 
+  // Registar comandos oficiais no menu do Telegram
+  async registerBotCommands() {
+    if (!this.isConfigured()) return;
+    try {
+      const commands = [
+        { command: "start", description: "Menu principal e ajuda" },
+        { command: "criar_app", description: "Programar nova App na nuvem (GitHub + Vercel + APK)" },
+        { command: "links", description: "Ver todos os sites e apps em produção na Vercel" },
+        { command: "apks", description: "Catálogo de downloads diretos de APKs" },
+        { command: "projetos", description: "Listar os 23 projetos sincronizados" },
+        { command: "status", description: "Estado do Surface e da Nuvem (CPU, RAM, Disco)" },
+        { command: "emails", description: "Resumo executivo de emails com IA" },
+        { command: "agenda", description: "Compromissos e Google Calendar" }
+      ];
+
+      await fetch(this.getApiUrl("setMyCommands"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands })
+      });
+      logger.info("📋 Comandos rápidos do Telegram registados com sucesso.");
+    } catch (e) {
+      logger.warn(`Erro ao registar comandos Telegram: ${e.message}`);
+    }
+  }
+
   // Ciclo de Long Polling para receber mensagens em tempo real (100% Free)
   async startPolling() {
     if (!this.isConfigured()) {
@@ -111,6 +137,7 @@ class TelegramService {
     this.isPolling = true;
 
     await this.getMe();
+    await this.registerBotCommands();
     logger.info("🚀 A iniciar escuta em tempo real do Telegram Bot (Long Polling 100% Free)...");
 
     while (this.isPolling) {
@@ -149,6 +176,22 @@ class TelegramService {
     const text = msg.text.trim();
     const fromUser = msg.from?.username || msg.from?.first_name || "Utilizador";
 
+    // SEGURANÇA E PRIVACIDADE ESTRITA: Apenas o André (Chat ID 950415577) tem autorização
+    const AUTHORIZED_CHAT_IDS = ["950415577"];
+    if (config.telegramChatId && !AUTHORIZED_CHAT_IDS.includes(String(config.telegramChatId))) {
+      AUTHORIZED_CHAT_IDS.push(String(config.telegramChatId));
+    }
+
+    const currentChatIdStr = String(chatId);
+    if (!AUTHORIZED_CHAT_IDS.includes(currentChatIdStr)) {
+      logger.warn(`⛔ [TELEGRAM BLOQUEADO] Tentativa de acesso não autorizada de ${fromUser} (ID: ${chatId})`);
+      await this.sendMessage(
+        chatId,
+        "⛔ *Acesso Negado*\n━━━━━━━━━━━━━━━━━━━━━━━━\nEste assistente autónomo é de uso estritamente privado para o engenheiro André Pinheiro."
+      );
+      return;
+    }
+
     // Se o ChatId não estiver memorizado, memoriza o do dono (+351 919 115 655)
     if (!config.telegramChatId) {
       config.telegramChatId = String(chatId);
@@ -156,13 +199,14 @@ class TelegramService {
       logger.info(`📌 Telegram Chat ID configurado automaticamente: ${chatId} (${fromUser})`);
     }
 
-    logger.info(`💬 [TELEGRAM] Mensagem de ${fromUser} (Chat: ${chatId}): "${text}"`);
+    logger.info(`💬 [TELEGRAM PRIVADO] Mensagem de ${fromUser} (Chat: ${chatId}): "${text}"`);
 
-    // Comandos de Barra
-    const lower = text.toLowerCase();
+    // Comandos de Barra ou Palavras-Chave Diretas
+    const lower = text.toLowerCase().trim();
+    const cleanCmd = lower.replace(/^\//, "").trim();
 
     // 1. /start ou /menu ou /ajuda
-    if (lower === "/start" || lower === "/menu" || lower === "/ajuda" || lower === "ajuda") {
+    if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {
       const welcome =
         `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM 100% FREE)*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -180,14 +224,14 @@ class TelegramService {
         `• \`/emails\` - Resumo com IA dos últimos emails recebidos\n` +
         `• \`/status\` - Saúde do PC (CPU, RAM, Bateria)\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `💡 _Podes também escrever normalmente ou enviar áudio!_`;
+        `💡 _Podes também escrever normalmente ou enviar mensagens de voz!_`;
 
       return await this.sendMessage(chatId, welcome);
     }
 
-    // 2. /criar_app ou /criar-app
-    if (lower.startsWith("/criar_app") || lower.startsWith("/criar-app") || lower.startsWith("/criar")) {
-      const rawPrompt = text.replace(/^\/(criar_app|criar-app|criar)\s*/i, "").trim();
+    // 2. /criar_app ou /criar-app ou criar app
+    if (cleanCmd.startsWith("criar_app") || cleanCmd.startsWith("criar-app") || cleanCmd.startsWith("criar app") || cleanCmd.startsWith("criar ")) {
+      const rawPrompt = text.replace(/^\/?(criar_app|criar-app|criar\s+app|criar)\s*/i, "").trim();
       if (!rawPrompt) {
         return await this.sendMessage(
           chatId,
@@ -248,7 +292,7 @@ class TelegramService {
     }
 
     // 3. /links ou /vercel
-    if (lower === "/links" || lower === "/vercel" || lower === "/sites") {
+    if (cleanCmd === "links" || cleanCmd === "vercel" || cleanCmd === "sites") {
       const linksText =
         `🌐 *LINKS OFICIAIS DOS PROJETOS EM VERCEL (PRODUÇÃO)*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -274,7 +318,7 @@ class TelegramService {
     }
 
     // 4. /apks ou /downloads
-    if (lower === "/apks" || lower === "/downloads") {
+    if (cleanCmd === "apks" || cleanCmd === "downloads" || cleanCmd === "download") {
       const apksText =
         `📦 *CATÁLOGO DE DOWNLOADS DE APKS (PRODUÇÃO)*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -292,7 +336,7 @@ class TelegramService {
     }
 
     // 5. /status ou /pc
-    if (lower === "/status" || lower === "/pc") {
+    if (cleanCmd === "status" || cleanCmd === "pc" || cleanCmd === "info") {
       const health = await systemService.getSystemHealth();
       const st =
         `💻 *ESTADO DO COMPUTADOR & NUVEM*\n` +
@@ -308,7 +352,7 @@ class TelegramService {
     }
 
     // 6. /projetos
-    if (lower === "/projetos") {
+    if (cleanCmd === "projetos" || cleanCmd === "projeto") {
       const projects = await universalProjectService.listAllProjects(false);
       const lines = projects.map((p, idx) => `${idx + 1}. *${p.name}* (${p.type})`);
       return await this.sendMessage(
@@ -318,7 +362,7 @@ class TelegramService {
     }
 
     // 7. /emails ou /resumo
-    if (lower === "/emails" || lower === "/resumo" || lower === "/rever_emails") {
+    if (cleanCmd === "emails" || cleanCmd === "resumo" || cleanCmd === "rever_emails") {
       if (!emailService.isConfigured()) {
         return await this.sendMessage(
           chatId,
@@ -336,7 +380,7 @@ class TelegramService {
     }
 
     // 8. /agenda ou /hoje
-    if (lower === "/agenda" || lower === "/hoje") {
+    if (cleanCmd === "agenda" || cleanCmd === "hoje") {
       const today = new Date().toISOString().split("T")[0];
       const events = calendarService.getEventsForDay(today);
       if (!events || events.length === 0) {

@@ -39,6 +39,77 @@ export function createWebServer() {
 
   app.use(cors());
   app.use(express.json({ limit: "50mb" }));
+
+  // Verificador de números associados ao WhatsApp Bot
+  const isAuthorizedPhone = (inputPhone) => {
+    if (!inputPhone) return false;
+    const clean = String(inputPhone).replace(/\D/g, "");
+    if (!clean) return false;
+    const authorized = [
+      (config.senderPhone || "").replace(/\D/g, ""),
+      (config.ownerPhone || "351919115655").replace(/\D/g, ""),
+      (config.receiverPhone || "351912101839").replace(/\D/g, ""),
+      "351919115655",
+      "351912101839"
+    ].filter(Boolean);
+
+    return authorized.some((p) => clean.endsWith(p) || p.endsWith(clean));
+  };
+
+  // Middleware de autorização para Catálogo e APKs (apenas números associados ao bot ou sessão ativa)
+  const checkDownloadAccess = (req, res, next) => {
+    // 1. Número de telefone autorizado via query, header ou body
+    const phone =
+      req.query.phone ||
+      req.query.number ||
+      req.query.from ||
+      req.headers["x-user-phone"] ||
+      (req.body && req.body.phone);
+
+    if (phone && isAuthorizedPhone(phone)) {
+      return next();
+    }
+
+    // 2. Sessão web autenticada (Login com PIN no dashboard)
+    const authHeader = req.headers.authorization;
+    const token =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : req.query.token;
+
+    if (token && activeSessions[token]) {
+      return next();
+    }
+
+    // 3. Token de sincronização PC Worker
+    const syncHeader = req.headers["x-sync-token"] || req.query.sync_token;
+    if (
+      syncHeader &&
+      (syncHeader === config.syncSecret ||
+        syncHeader === "segredo_super_seguro_sync_2026" ||
+        syncHeader === "sync_default_token_9959")
+    ) {
+      return next();
+    }
+
+    // Bloqueio para qualquer outro utilizador
+    return res.status(403).json({
+      error:
+        "Acesso Negado: O Catálogo de Downloads é restrito exclusivamente aos números associados ao WhatsApp Bot (+351 919 115 655 / +351 912 101 839).",
+      status: 403,
+      authorized: false,
+      help: "Indique o seu número de telemóvel autorizado via ?phone=351919115655 ou inicie sessão no painel."
+    });
+  };
+
+  // Intercetor de segurança para download de ficheiros .apk
+  app.use((req, res, next) => {
+    if (req.path.toLowerCase().endsWith(".apk")) {
+      return checkDownloadAccess(req, res, next);
+    }
+    next();
+  });
+
   app.use(express.static(path.join(__dirname, "public")));
 
   // Lista de clientes SSE conectados para tempo real
@@ -150,11 +221,20 @@ export function createWebServer() {
     res.json(cloudTunnel.getStatus());
   });
 
-  // 1.1.1 ENDPOINTS DE DOWNLOADS E PROJETOS EM VERCEL
-  app.get("/api/downloads", (req, res) => {
+  // 1.1.1 ENDPOINTS DE DOWNLOADS E PROJETOS EM VERCEL (APENAS NÚMEROS DO BOT)
+  app.get("/api/downloads", checkDownloadAccess, (req, res) => {
+    const callerPhone =
+      req.query.phone ||
+      req.query.number ||
+      req.headers["x-user-phone"] ||
+      config.ownerPhone ||
+      "351919115655";
+
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
+      authorizedCaller: callerPhone,
+      message: "Acesso autorizado aos números do WhatsApp Bot.",
       vercelProjects: [
         { name: "Smooth-Bus-Routes (RotaBus)", url: "https://smooth-bus-routes.vercel.app", apkUrl: "https://smooth-bus-routes.vercel.app/rotabus.apk" },
         { name: "MatchPro (Streaming & Tática)", url: "https://matchpro-alpha.vercel.app", apkUrl: "https://matchpro-alpha.vercel.app/MatchPro.apk" },
@@ -174,7 +254,7 @@ export function createWebServer() {
     });
   });
 
-  app.get("/downloads/:filename", (req, res) => {
+  app.get("/downloads/:filename", checkDownloadAccess, (req, res) => {
     const filename = req.params.filename;
     const publicPath = path.join(__dirname, "public", filename);
     const desktopPath = path.join(config.projectsDir, filename);

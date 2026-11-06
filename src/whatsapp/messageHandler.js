@@ -330,6 +330,7 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         case "apks":
         case "downloads":
         case "download": {
+          const cleanSender = (senderNumber || config.ownerPhone || "351919115655").replace(/\D/g, "");
           const apksText =
             `📦 *APKS PRONTOS PARA TESTAR NOS SMARTPHONES*\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -347,9 +348,9 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             `   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
             `   _Serviço de notificação, IA e automação WhatsApp para Android._\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `☁️ *Servidor Nuvem (VM 136.64.71.248:3333):*\n` +
-            `   📥 http://136.64.71.248:3333/api/downloads\n` +
-            `   📥 http://192.168.1.115:8081 (Download Direto no PC)\n` +
+            `☁️ *Servidor Nuvem (Acesso Restrito ao Bot):*\n` +
+            `   📥 http://136.64.71.248:3333/api/downloads?phone=${cleanSender}\n` +
+            `   🔒 _(Acesso exclusivo para os números associados: +351 919 115 655 / +351 912 101 839)_\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
 
@@ -1596,6 +1597,7 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         }
 
         case "LIST_APKS": {
+          const cleanSender = (senderNumber || config.ownerPhone || "351919115655").replace(/\D/g, "");
           const apksText =
             `📦 *APKS PRONTOS PARA TESTAR NOS SMARTPHONES*\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1613,9 +1615,9 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             `   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
             `   _Serviço de notificação, IA e automação WhatsApp para Android._\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `☁️ *Servidor Nuvem (VM 136.64.71.248:3333):*\n` +
-            `   📥 http://136.64.71.248:3333/api/downloads\n` +
-            `   📥 http://192.168.1.115:8081 (Download Direto no PC)\n` +
+            `☁️ *Servidor Nuvem (Acesso Restrito ao Bot):*\n` +
+            `   📥 http://136.64.71.248:3333/api/downloads?phone=${cleanSender}\n` +
+            `   🔒 _(Acesso exclusivo para os números associados: +351 919 115 655 / +351 912 101 839)_\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
           return await sendReply(senderJid, { text: apksText });

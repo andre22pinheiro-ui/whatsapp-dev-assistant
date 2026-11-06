@@ -8,6 +8,7 @@ import universalProjectService from "./universalProjectService.js";
 import personalAssistant from "./personalAssistant.js";
 import aiService from "./aiService.js";
 import portugalLawService from "./portugalLawService.js";
+import masterDomainService from "./masterDomainService.js";
 
 class TelegramService {
   constructor() {
@@ -310,6 +311,72 @@ class TelegramService {
     if (isLegalQuery) {
       const legalAnswer = await portugalLawService.consultLegalAdvisor(text);
       return await this.sendMessage(chatId, legalAnswer);
+    }
+
+    // 1.0.3 NUTRIÇÃO DE ALTA PERFORMANCE & ROTINA FÍSICA
+    const isNutritionQuery =
+      cleanCmd === "nutricao" ||
+      cleanCmd === "nutrição" ||
+      cleanCmd === "dieta" ||
+      cleanCmd === "macros" ||
+      cleanCmd === "proteina" ||
+      cleanCmd === "proteína" ||
+      lower.includes("cottage cheese") ||
+      lower.includes("nestum pro") ||
+      lower.includes("lombo de porco") ||
+      lower.includes("air fryer") ||
+      lower.includes("airfryer") ||
+      lower.includes("vegetais freshona") ||
+      lower.includes("monsieur cuisine") ||
+      lower.includes("waffles proteicos") ||
+      lower.includes("suporte lombar") ||
+      lower.includes("ergonomia") ||
+      lower.includes("plano alimentar") ||
+      (lower.includes("o que") && lower.includes("comer"));
+
+    if (isNutritionQuery) {
+      const plan = masterDomainService.getNutritionPlan();
+      return await this.sendMessage(chatId, plan);
+    }
+
+    // 1.0.4 ENGENHARIA DE CONSTRUÇÃO & PLADUR-PRO
+    const isPladurQuery =
+      cleanCmd === "pladur" ||
+      cleanCmd === "pladur_pro" ||
+      cleanCmd === "gesso" ||
+      lower.includes("placa de gesso") ||
+      lower.includes("perfis de pladur") ||
+      lower.includes("montantes") ||
+      lower.includes("raias") ||
+      lower.includes("isolamento acustico") ||
+      lower.includes("isolamento acústico") ||
+      lower.includes("lã de rocha") ||
+      lower.includes("orçamento pladur") ||
+      lower.includes("en 520") ||
+      lower.includes("en 14195");
+
+    if (isPladurQuery) {
+      const specs = masterDomainService.getPladurSpecifications();
+      return await this.sendMessage(chatId, specs);
+    }
+
+    // 1.0.5 GESTÃO DE FROTAS & TACÓGRAFO (APPFROTA / ROTABUS)
+    const isFleetQuery =
+      cleanCmd === "frota" ||
+      cleanCmd === "appfrota" ||
+      cleanCmd === "rotabus" ||
+      cleanCmd === "tqr" ||
+      lower.includes("tacografo digital") ||
+      lower.includes("tacógrafo digital") ||
+      lower.includes("tqr-3011b") ||
+      lower.includes("dados do tacografo") ||
+      lower.includes("gabarito") ||
+      lower.includes("altura pesados") ||
+      lower.includes("descarregar cartao");
+
+    if (isFleetQuery) {
+      const fleetSpecs = masterDomainService.getFleetTacographAnalysis();
+      return await this.sendMessage(chatId, fleetSpecs);
     }
 
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {

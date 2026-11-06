@@ -15,6 +15,7 @@ import immoEvalService from "./immoEvalService.js";
 import apiLinkService from "./apiLinkService.js";
 import groqService from "./groqService.js";
 import amaranteMapService from "./amaranteMapService.js";
+import cloudinaryService from "./cloudinaryService.js";
 
 class TelegramService {
   constructor() {
@@ -488,10 +489,24 @@ class TelegramService {
         config.geminiApiKey = val;
         saveSettings({ geminiApiKey: val });
         return await this.sendMessage(chatId, `✅ *Chave Gemini guardada com sucesso!*`);
+      } else if (target === "cloudinary") {
+        const cParts = val.split(/\s+/);
+        if (cParts.length >= 2) {
+          cloudinaryService.saveCredentials({ cloudName: cParts[0], apiKey: cParts[1], secret: cParts[2] || config.cloudinarySecret });
+          return await this.sendMessage(chatId, `✅ *Cloudinary configurado com sucesso!*\n${cloudinaryService.getStatus()}`);
+        } else {
+          cloudinaryService.saveCredentials({ secret: val });
+          return await this.sendMessage(chatId, `✅ *Cloudinary Secret guardado!*\n${cloudinaryService.getStatus()}`);
+        }
       } else {
         saveSettings({ [target]: val });
         return await this.sendMessage(chatId, `✅ *Definição '${target}' guardada com sucesso!*`);
       }
+    }
+
+    // 1.4 Estado do Cloudinary CDN
+    if (cleanCmd === "cloudinary" || cleanCmd === "cdn") {
+      return await this.sendMessage(chatId, cloudinaryService.getStatus());
     }
     if (cleanCmd.startsWith("config_email") || cleanCmd.startsWith("config-email") || cleanCmd.startsWith("senha_email")) {
       let rawPass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();

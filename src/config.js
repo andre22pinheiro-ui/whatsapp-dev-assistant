@@ -82,7 +82,11 @@ export const config = {
   groqApiKey: process.env.GROQ_API_KEY || settings.groqApiKey || "",
   groqModel: process.env.GROQ_MODEL || settings.groqModel || "openai/gpt-oss-120b",
   githubToken: process.env.GITHUB_TOKEN || settings.githubToken || "",
-  githubOwner: process.env.GITHUB_OWNER || settings.githubOwner || "andre22pinheiro-ui"
+  githubOwner: process.env.GITHUB_OWNER || settings.githubOwner || "andre22pinheiro-ui",
+  cloudinarySecret: process.env.CLOUDINARY_SECRET || settings.cloudinarySecret || "",
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || settings.cloudinaryApiKey || "",
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || settings.cloudinaryCloudName || "",
+  cloudinaryUrl: process.env.CLOUDINARY_URL || settings.cloudinaryUrl || ""
 };
 
 export default config;

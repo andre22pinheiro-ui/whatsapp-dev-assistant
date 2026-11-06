@@ -53,6 +53,7 @@ export const config = {
   androidSdkPath: process.env.ANDROID_SDK_PATH || settings.androidSdkPath || "C:\\Users\\Surface_Dpc\\AppData\\Local\\Android\\Sdk",
   adbPath: process.env.ADB_PATH || settings.adbPath || "C:\\Users\\Surface_Dpc\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe",
   studioPath: process.env.STUDIO_PATH || settings.studioPath || "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe",
+  blenderPath: process.env.BLENDER_PATH || settings.blenderPath || "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
   agyPath: process.env.AGY_PATH || settings.agyPath || "C:\\Users\\Surface_Dpc\\AppData\\Local\\agy\\bin\\agy.exe",
   cloudflaredPath: process.env.CLOUDFLARED_PATH || settings.cloudflaredPath || "C:\\Users\\Surface_Dpc\\Desktop\\projectos\\PC-Remote-Portatil\\cloudflared.exe",
   enableCloudTunnel: settings.enableCloudTunnel !== undefined ? settings.enableCloudTunnel : true,

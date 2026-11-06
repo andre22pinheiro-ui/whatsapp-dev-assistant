@@ -18,6 +18,7 @@ import amaranteMapService from "./amaranteMapService.js";
 import cloudinaryService from "./cloudinaryService.js";
 import huggingfaceService from "./huggingfaceService.js";
 import orsRouteService from "./orsRouteService.js";
+import blenderService from "./blenderService.js";
 
 class TelegramService {
   constructor() {
@@ -426,6 +427,42 @@ class TelegramService {
       await this.sendMessage(chatId, `🚌 _A calcular rota de pesados para gabarito de autocarro (${origin} ➡️ ${destination})..._`);
       const routePlan = await orsRouteService.planRouteByNames(origin, destination);
       return await this.sendMessage(chatId, routePlan);
+    }
+
+    // 1.0.5.2 ACESSO E RENDERIZAÇÃO 3D BLENDER (BLENDER 5.2.3 LTS)
+    const isBlenderQuery =
+      cleanCmd === "blender" ||
+      cleanCmd === "3d" ||
+      cleanCmd.startsWith("blender ") ||
+      lower.includes("blender") ||
+      lower.includes("render 3d") ||
+      lower.includes("renderizar 3d") ||
+      lower.includes("modelo 3d");
+
+    if (isBlenderQuery) {
+      if (lower.includes("render") || lower.includes("gera") || lower.includes("cria") || lower.includes("autocarro")) {
+        await this.sendMessage(chatId, `🎨 _A iniciar o motor do Blender 5.2 headless para renderização 3D..._`);
+        const type = lower.includes("pladur") ? "pladur_wall" : "bus_gabarito";
+        const render = await blenderService.renderProceduralPreview(type);
+        if (render && render.success) {
+          let cdnUrl = "";
+          try {
+            const fs = await import("fs");
+            const up = await cloudinaryService.uploadMedia(fs.default.readFileSync(render.filePath));
+            if (up && up.url) cdnUrl = up.url;
+          } catch (e) {}
+
+          const caption =
+            `🎨 *RENDERIZAÇÃO 3D CONCLUÍDA NO BLENDER 5.2!*\n` +
+            `• *Modelo:* ${type === 'pladur_wall' ? 'Divisória Pladur 4x2.6m' : 'Gabarito Autocarro 12x2.5x3.8m'}\n` +
+            `• *Motor de Render:* Workbench / Eevee Headless\n` +
+            (cdnUrl ? `• 🖼️ *Imagem CDN:* ${cdnUrl}\n` : `• Ficheiro gerado localmente no PC.\n`) +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💡 _Podes pedir outros renders ou parâmetros em linguagem corrente!_`;
+          return await this.sendMessage(chatId, caption);
+        }
+      }
+      return await this.sendMessage(chatId, blenderService.getStatus());
     }
 
     // 1.0.6 ESPECIALISTA EM EDIÇÃO, ROTEIRO E DESIGN PARA SHORTS & REELS

@@ -8,6 +8,8 @@ import antigravityService from "../src/services/antigravityService.js";
 import androidService from "../src/services/androidService.js";
 import universalProjectService from "../src/services/universalProjectService.js";
 import agentxService from "../src/services/agentxService.js";
+import appScaffoldService from "../src/services/appScaffoldService.js";
+import emailService from "../src/services/emailService.js";
 import logger from "../src/utils/logger.js";
 
 const execAsync = promisify(exec);
@@ -26,6 +28,7 @@ const SYNC_SECRET = config.syncSecret || "sync_default_token_9959";
 const POLL_INTERVAL_MS = 10000; // 10 segundos
 
 let isProcessing = false;
+let syncCounter = 0;
 
 // Função auxiliar para fazer chamadas HTTP/HTTPS com JSON
 function requestJson(urlStr, options = {}, postData = null) {
@@ -203,6 +206,41 @@ async function processOrderLocally(order) {
       };
     }
 
+    // 5.4.1 Criação Autónoma de App (/criar-app <nome> : <prompt>)
+    if (/^\/?(criar[-_]app|gerar[-_]app)\b/i.test(rawOrder)) {
+      const promptPart = rawOrder.replace(/^\/?(criar[-_]app|gerar[-_]app)\s*/i, "").trim();
+      let appName = "";
+      let appPrompt = "";
+      if (promptPart.includes(":")) {
+        const [p1, ...p2] = promptPart.split(":");
+        appName = p1.trim();
+        appPrompt = p2.join(":").trim();
+      } else {
+        const parts = promptPart.split(" ");
+        appName = parts[0];
+        appPrompt = parts.slice(1).join(" ") || `Aplicação ${appName}`;
+      }
+
+      const buildRes = await appScaffoldService.buildAndDeployApp({
+        name: appName,
+        prompt: appPrompt
+      });
+
+      return {
+        success: true,
+        output:
+          `🚀 *APP GERADA E PUBLICADA COM SUCESSO!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📱 *Aplicação:* *${buildRes.title}*\n` +
+          `⏱️ *Tempo:* ${buildRes.durationSeconds}s\n\n` +
+          `🌐 *Vercel Web App:*\n${buildRes.vercelUrl}\n\n` +
+          `🐙 *GitHub:*\n${buildRes.githubUrl}\n\n` +
+          `📦 *Android APK (GitHub Actions):*\n${buildRes.actionsUrl}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━`,
+        durationSeconds: buildRes.durationSeconds
+      };
+    }
+
     // 5.5 Execução Autónoma com o Motor AgentX (/exec ou ordem padrão)
     let targetProj = order.targetProject || null;
     let taskText = rawOrder;
@@ -256,6 +294,16 @@ async function syncCycle() {
         await reportOrderResult(order.id, result);
       }
     }
+
+    // Verificação periódica autónoma de prompts de apps recebidos por email (a cada ~60s)
+    syncCounter++;
+    if (syncCounter % 6 === 0 && emailService.isConfigured()) {
+      try {
+        await emailService.checkAppPromptEmails();
+      } catch (emErr) {
+        logger.warn(`Aviso ao verificar emails de prompts no worker: ${emErr.message}`);
+      }
+    }
   } catch (err) {
     logger.warn(`Aviso no ciclo de sincronização: ${err.message}`);
   } finally {
@@ -270,6 +318,14 @@ async function main() {
 
   // Aguardar ligação inicial
   await checkGitUpdate();
+
+  // Iniciar escuta do Telegram Bot se configurado (100% Free)
+  try {
+    const { telegramService } = await import("../src/services/telegramService.js");
+    if (telegramService.isConfigured()) {
+      telegramService.startPolling();
+    }
+  } catch (tErr) {}
 
   // Executar primeiro ciclo imediato
   await syncCycle();

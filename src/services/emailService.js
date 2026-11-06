@@ -4,6 +4,8 @@ import config, { saveSettings } from "../config.js";
 import logger from "../utils/logger.js";
 import { readData, writeData } from "../utils/storage.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import appScaffoldService from "./appScaffoldService.js";
+import telegramService from "./telegramService.js";
 
 class EmailService {
   constructor() {
@@ -446,6 +448,187 @@ Formate em Markdown para WhatsApp em português de Portugal.
       "💡 _Para enviar agora:_ `/enviar-rascunho 1` ou `/enviar-rascunho <id>`\n" +
       "💡 _Para apagar:_ `/apagar-rascunho 1`";
     return text;
+  }
+
+  // -------------------------------------------------------------
+  // PIPELINE AUTÓNOMA: EMAIL-TO-APP (Ler Prompt de Email e Desenvolver)
+  // -------------------------------------------------------------
+  async checkAppPromptEmails() {
+    if (!this.isConfigured()) {
+      return { checked: false, reason: "Email não configurado." };
+    }
+
+    logger.info("📬 A verificar caixa de correio à procura de prompts para criação de Apps...");
+    const client = this.getImapClient();
+    const processedApps = [];
+
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX");
+
+      try {
+        // Pesquisar emails não lidos
+        const searchResult = await client.search({ seen: false }, { uid: true });
+        const uids = Array.isArray(searchResult) ? searchResult : [];
+
+        if (uids.length === 0) {
+          return { checked: true, found: 0, processedApps: [] };
+        }
+
+        for (const uid of uids) {
+          try {
+            const msg = await client.fetchOne(uid, {
+              envelope: true,
+              flags: true,
+              uid: true,
+              source: true
+            }, { uid: true });
+
+            if (!msg || !msg.envelope) continue;
+
+            const subject = (msg.envelope.subject || "").trim();
+            const senderObj = msg.envelope.from?.[0] || {};
+            const senderName = senderObj.name || senderObj.address || "André Pinheiro";
+            const senderEmail = senderObj.address || config.authEmail || "Andre22pinheiro@gmail.com";
+
+            // Padrões de deteção no assunto ou corpo
+            // Ex: "[App] Gestor de Clientes", "Criar App: Rota Bus", "Projeto: Gestão de Obra"
+            const appRegex = /^(?:\[app\]|criar\s+app|nova\s+app|desenvolver\s+app|projeto)\s*[:\-]?\s*(.+)/i;
+            const match = subject.match(appRegex);
+
+            let appName = "";
+            let promptText = "";
+
+            if (match) {
+              appName = match[1].trim();
+            }
+
+            // Ler o corpo do email
+            let bodyText = "";
+            if (msg.source) {
+              const raw = msg.source.toString("utf8");
+              bodyText = raw
+                .replace(/Content-Type:[\s\S]*?\r?\n\r?\n/, "")
+                .replace(/<[^>]*>/g, " ")
+                .replace(/\r?\n\s*\r?\n/g, "\n")
+                .trim();
+            }
+
+            // Se o assunto não tinha prefixo explícito, verificar se o corpo começa com "Criar app:"
+            if (!appName) {
+              const bodyMatch = bodyText.match(/^(?:criar\s+app|nova\s+app|desenvolver\s+app)\s*[:\-]?\s*([^\n\r]+)/i);
+              if (bodyMatch) {
+                appName = bodyMatch[1].trim();
+              }
+            }
+
+            // Se detetámos uma ordem de criação de App
+            if (appName) {
+              promptText = bodyText || subject;
+              logger.info(`✨ [EMAIL-TO-APP] Novo prompt detetado no email UID #${uid}: "${appName}"`);
+
+              // Marcar imediatamente como lido para não reprocessar
+              await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
+
+              // 1. Notificar WhatsApp e Telegram que a ordem foi recebida
+              const startNotice =
+                `📨 *PROMPT DE APP RECEBIDO POR EMAIL!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `👤 *Remetente:* ${senderName} (${senderEmail})\n` +
+                `📌 *Aplicação:* *${appName}*\n` +
+                `📝 *Instruções:* "${promptText.slice(0, 180)}${promptText.length > 180 ? '...' : ''}"\n\n` +
+                `⚡ _A pipeline autónoma está a gerar a aplicação (React + Vite + Tailwind + Capacitor), a criar o repositório GitHub e a publicar na nuvem (Vercel)..._`;
+
+              if (this.emailNotifier && typeof this.emailNotifier === "function") {
+                await this.emailNotifier(startNotice);
+              }
+              await telegramService.notifyOwner(startNotice);
+
+              // 2. Executar pipeline autónoma
+              const buildRes = await appScaffoldService.buildAndDeployApp({
+                name: appName,
+                prompt: promptText,
+                sender: senderEmail
+              });
+
+              // 3. Responder por email com os links
+              const emailReplySubject = `Re: [App Concluída] ${buildRes.title} - Links de Produção`;
+              const emailReplyBody = `Olá ${senderName},\n\nA tua aplicação "${buildRes.title}" foi desenvolvida e publicada autonomamente com sucesso!\n\n` +
+                `🌐 Vercel Web App (Produção): ${buildRes.vercelUrl}\n` +
+                `🐙 Repositório GitHub: ${buildRes.githubUrl}\n` +
+                `📦 Compilação Android (APK CI/CD): ${buildRes.actionsUrl}\n\n` +
+                `Tempo de execução: ${buildRes.durationSeconds}s.\n\n` +
+                `Cumprimentos,\nAssistente Autónomo de Desenvolvimento`;
+
+              try {
+                await this.sendEmail({
+                  to: senderEmail,
+                  subject: emailReplySubject,
+                  text: emailReplyBody
+                });
+                logger.info(`✉️ Resposta por email enviada com sucesso para ${senderEmail}`);
+              } catch (mailErr) {
+                logger.warn(`Aviso ao enviar resposta por email: ${mailErr.message}`);
+              }
+
+              // 4. Notificar WhatsApp e Telegram com o resultado final
+              const finishNotice =
+                `🚀 *APP GERADA E PUBLICADA NA NUVEM!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📱 *Aplicação:* *${buildRes.title}*\n` +
+                `⏱️ *Tempo:* ${buildRes.durationSeconds} segundos\n\n` +
+                `🌐 *Vercel (Web & Mobile):*\n${buildRes.vercelUrl}\n\n` +
+                `🐙 *GitHub:* \n${buildRes.githubUrl}\n\n` +
+                `📦 *Android APK (GitHub Actions):*\n${buildRes.actionsUrl}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `✅ _Email de confirmação enviado para ${senderEmail}._`;
+
+              if (this.emailNotifier && typeof this.emailNotifier === "function") {
+                await this.emailNotifier(finishNotice);
+              }
+              await telegramService.notifyOwner(finishNotice);
+
+              processedApps.push(buildRes);
+            }
+          } catch (itemErr) {
+            logger.error(`Erro ao processar email UID #${uid}:`, itemErr);
+          }
+        }
+      } finally {
+        lock.release();
+      }
+
+      await client.logout();
+      return { checked: true, found: processedApps.length, processedApps };
+    } catch (err) {
+      logger.error("Erro ao verificar emails de prompts:", err);
+      return { checked: false, error: err.message };
+    }
+  }
+
+  // Iniciar escuta periódica de emails para desenvolvimento automático
+  startEmailPoller(intervalMs = 60000) {
+    if (this.schedulerInterval) {
+      clearInterval(this.schedulerInterval);
+    }
+    logger.info(`⏱️ Escuta periódica de emails de desenvolvimento ativa (intervalo: ${Math.round(intervalMs / 1000)}s)`);
+    this.schedulerInterval = setInterval(async () => {
+      try {
+        if (this.isConfigured()) {
+          await this.checkAppPromptEmails();
+        }
+      } catch (e) {
+        logger.warn(`Aviso no ciclo do email poller: ${e.message}`);
+      }
+    }, intervalMs);
+  }
+
+  stopEmailPoller() {
+    if (this.schedulerInterval) {
+      clearInterval(this.schedulerInterval);
+      this.schedulerInterval = null;
+      logger.info("⏹️ Escuta periódica de emails parada.");
+    }
   }
 }
 

@@ -1,0 +1,366 @@
+import config, { saveSettings } from "../config.js";
+import logger from "../utils/logger.js";
+import appScaffoldService from "./appScaffoldService.js";
+import emailService from "./emailService.js";
+import calendarService from "./calendarService.js";
+import systemService from "./systemService.js";
+import universalProjectService from "./universalProjectService.js";
+import personalAssistant from "./personalAssistant.js";
+import aiService from "./aiService.js";
+
+class TelegramService {
+  constructor() {
+    this.isPolling = false;
+    this.lastUpdateId = 0;
+    this.pollAbortController = null;
+    this.botInfo = null;
+  }
+
+  isConfigured() {
+    return Boolean(config.telegramBotToken && config.telegramBotToken.trim());
+  }
+
+  getApiUrl(method) {
+    return `https://api.telegram.org/bot${config.telegramBotToken}/${method}`;
+  }
+
+  // Enviar mensagem de texto formatada
+  async sendMessage(chatId, text, { parseMode = "Markdown", replyMarkup = null } = {}) {
+    if (!this.isConfigured()) return null;
+
+    const targetChatId = chatId || config.telegramChatId;
+    if (!targetChatId) {
+      logger.warn("Telegram: Nenhum Chat ID configurado para envio de mensagem.");
+      return null;
+    }
+
+    try {
+      const payload = {
+        chat_id: targetChatId,
+        text,
+        disable_web_page_preview: false
+      };
+
+      if (parseMode) {
+        payload.parse_mode = parseMode;
+      }
+      if (replyMarkup) {
+        payload.reply_markup = replyMarkup;
+      }
+
+      const res = await fetch(this.getApiUrl("sendMessage"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!data.ok) {
+        // Se falhar com Markdown por causa de caracteres especiais, tentar sem parse_mode
+        if (parseMode && data.description?.includes("can't parse entities")) {
+          delete payload.parse_mode;
+          const retryRes = await fetch(this.getApiUrl("sendMessage"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          return await retryRes.json();
+        }
+        logger.warn(`Erro no envio de mensagem Telegram: ${data.description}`);
+      }
+      return data;
+    } catch (err) {
+      logger.error("Erro na chamada à API do Telegram:", err);
+      return null;
+    }
+  }
+
+  // Notificar o André no Telegram (usado pelo Email-to-App e alertas)
+  async notifyOwner(text) {
+    if (config.telegramChatId) {
+      return await this.sendMessage(config.telegramChatId, text);
+    }
+    return null;
+  }
+
+  // Verificar bot e obter detalhes
+  async getMe() {
+    if (!this.isConfigured()) return null;
+    try {
+      const res = await fetch(this.getApiUrl("getMe"));
+      const data = await res.json();
+      if (data.ok) {
+        this.botInfo = data.result;
+        logger.info(`🤖 Telegram Bot Ativo: @${data.result.username} (${data.result.first_name})`);
+        return data.result;
+      }
+    } catch (e) {
+      logger.warn(`Erro ao verificar Telegram getMe: ${e.message}`);
+    }
+    return null;
+  }
+
+  // Ciclo de Long Polling para receber mensagens em tempo real (100% Free)
+  async startPolling() {
+    if (!this.isConfigured()) {
+      logger.info("ℹ️ Telegram Bot Token não configurado. Para ativar: envie o token do @BotFather.");
+      return;
+    }
+
+    if (this.isPolling) return;
+    this.isPolling = true;
+
+    await this.getMe();
+    logger.info("🚀 A iniciar escuta em tempo real do Telegram Bot (Long Polling 100% Free)...");
+
+    while (this.isPolling) {
+      try {
+        const url = `${this.getApiUrl("getUpdates")}?offset=${this.lastUpdateId + 1}&timeout=25`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.ok && Array.isArray(data.result)) {
+          for (const update of data.result) {
+            this.lastUpdateId = update.update_id;
+            await this.handleUpdate(update);
+          }
+        } else if (!data.ok) {
+          logger.warn(`Telegram polling erro: ${data.description}`);
+          await new Promise((r) => setTimeout(r, 5000));
+        }
+      } catch (err) {
+        // Erro de rede transitório
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  }
+
+  stopPolling() {
+    this.isPolling = false;
+    logger.info("⏹️ Escuta do Telegram Bot terminada.");
+  }
+
+  // Tratar mensagem recebida do utilizador
+  async handleUpdate(update) {
+    const msg = update.message;
+    if (!msg || !msg.text) return;
+
+    const chatId = msg.chat.id;
+    const text = msg.text.trim();
+    const fromUser = msg.from?.username || msg.from?.first_name || "Utilizador";
+
+    // Se o ChatId não estiver memorizado, memoriza o do dono (+351 919 115 655)
+    if (!config.telegramChatId) {
+      config.telegramChatId = String(chatId);
+      saveSettings({ telegramChatId: String(chatId) });
+      logger.info(`📌 Telegram Chat ID configurado automaticamente: ${chatId} (${fromUser})`);
+    }
+
+    logger.info(`💬 [TELEGRAM] Mensagem de ${fromUser} (Chat: ${chatId}): "${text}"`);
+
+    // Comandos de Barra
+    const lower = text.toLowerCase();
+
+    // 1. /start ou /menu ou /ajuda
+    if (lower === "/start" || lower === "/menu" || lower === "/ajuda" || lower === "ajuda") {
+      const welcome =
+        `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM 100% FREE)*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Olá, André! O teu assistente está 100% conectado e sincronizado com o Surface e a Nuvem.\n\n` +
+        `🚀 *DESENVOLVIMENTO AUTÓNOMO (PROMPT-TO-APP):*\n` +
+        `• \`/criar_app <nome> : <prompt>\` - Desenvolve app React+Vite+Capacitor, envia para o GitHub e publica na Vercel!\n` +
+        `• \`/verificar_emails\` - Lê a caixa de correio por pedidos de apps\n\n` +
+        `🌐 *LINKS & APKS OFICIAIS:*\n` +
+        `• \`/links\` ou \`/vercel\` - Todos os projetos em produção na Vercel\n` +
+        `• \`/apks\` - Links diretos de alta velocidade para testar APKs\n` +
+        `• \`/projetos\` - Lista os 23 projetos sincronizados do Surface\n\n` +
+        `👔 *GESTOR PESSOAL (EMAIL & AGENDA):*\n` +
+        `• \`/gestor\` - Resumo executivo diário\n` +
+        `• \`/hoje\` ou \`/agenda\` - Compromissos do dia\n` +
+        `• \`/emails\` - Resumo com IA dos últimos emails recebidos\n` +
+        `• \`/status\` - Saúde do PC (CPU, RAM, Bateria)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 _Podes também escrever normalmente ou enviar áudio!_`;
+
+      return await this.sendMessage(chatId, welcome);
+    }
+
+    // 2. /criar_app ou /criar-app
+    if (lower.startsWith("/criar_app") || lower.startsWith("/criar-app") || lower.startsWith("/criar")) {
+      const rawPrompt = text.replace(/^\/(criar_app|criar-app|criar)\s*/i, "").trim();
+      if (!rawPrompt) {
+        return await this.sendMessage(
+          chatId,
+          `💡 *Como usar o Criador de Apps:*\n` +
+          `\`/criar_app <nome> : <instruções>\`\n\n` +
+          `*Exemplo:*\n` +
+          `\`/criar_app Gestor de Obras : App para registo de clientes de pladur, materiais e orçamentos.\``
+        );
+      }
+
+      let appName = "";
+      let appPrompt = "";
+      if (rawPrompt.includes(":")) {
+        const [p1, ...p2] = rawPrompt.split(":");
+        appName = p1.trim();
+        appPrompt = p2.join(":").trim();
+      } else {
+        const parts = rawPrompt.split(" ");
+        appName = parts[0];
+        appPrompt = parts.slice(1).join(" ") || `Aplicação ${appName}`;
+      }
+
+      await this.sendMessage(
+        chatId,
+        `⚡ *A INICIAR DESENVOLVIMENTO AUTÓNOMO DA APP...*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📱 *Nome:* *${appName}*\n` +
+        `📝 *Prompt:* "${appPrompt.slice(0, 150)}..."\n\n` +
+        `⏳ _1. A estruturar projeto React + Vite + TailwindCSS_\n` +
+        `⏳ _2. A configurar Capacitor Android & GitHub Actions_\n` +
+        `⏳ _3. A criar repositório e fazer push para o GitHub_\n` +
+        `⏳ _4. A efetuar deploy em produção no Vercel_\n\n` +
+        `_Aguarda alguns segundos pelo relatório final com os links..._`
+      );
+
+      try {
+        const buildRes = await appScaffoldService.buildAndDeployApp({
+          name: appName,
+          prompt: appPrompt,
+          sender: fromUser
+        });
+
+        const successMsg =
+          `🚀 *APP GERADA E PUBLICADA COM SUCESSO!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📱 *Aplicação:* *${buildRes.title}*\n` +
+          `⏱️ *Tempo de execução:* ${buildRes.durationSeconds}s\n\n` +
+          `🌐 *Vercel Web App (Produção):*\n${buildRes.vercelUrl}\n\n` +
+          `🐙 *Repositório GitHub:*\n${buildRes.githubUrl}\n\n` +
+          `📦 *Compilação Android APK (GitHub Actions):*\n${buildRes.actionsUrl}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `💡 _A app já está em produção e pronta para testares no telemóvel!_`;
+
+        return await this.sendMessage(chatId, successMsg);
+      } catch (err) {
+        return await this.sendMessage(chatId, `❌ *Erro ao gerar a aplicação:*\n${err.message}`);
+      }
+    }
+
+    // 3. /links ou /vercel
+    if (lower === "/links" || lower === "/vercel" || lower === "/sites") {
+      const linksText =
+        `🌐 *LINKS OFICIAIS DOS PROJETOS EM VERCEL (PRODUÇÃO)*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🚌 *1. Smooth-Bus-Routes (RotaBus)*\n` +
+        `   🔗 https://smooth-bus-routes.vercel.app\n` +
+        `   • APK: https://smooth-bus-routes.vercel.app/rotabus.apk\n\n` +
+        `⚽ *2. MatchPro (Streaming & Tática)*\n` +
+        `   🔗 https://matchpro-alpha.vercel.app\n` +
+        `   • APK: https://matchpro-alpha.vercel.app/MatchPro.apk\n\n` +
+        `🏗️ *3. Pladur-Pro (Engenharia 3D & Orçamentação)*\n` +
+        `   🔗 https://pladur-pro.vercel.app\n` +
+        `   • APK: https://pladur-pro.vercel.app/PladurPro.apk\n\n` +
+        `🚛 *4. AppFrota (Gestão de Frotas)*\n` +
+        `   🔗 https://appfrota-ten.vercel.app\n\n` +
+        `🧸 *5. Casa de Bonecas 3D*\n` +
+        `   🔗 https://casadebonecas-3d.vercel.app\n\n` +
+        `⚔️ *6. Last War Tactics*\n` +
+        `   🔗 https://last-war-tactics.vercel.app\n\n` +
+        `🏠 *7. Pesquisa Imobiliário*\n` +
+        `   🔗 https://pesquisa-imobiliario.vercel.app\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━`;
+      return await this.sendMessage(chatId, linksText);
+    }
+
+    // 4. /apks ou /downloads
+    if (lower === "/apks" || lower === "/downloads") {
+      const apksText =
+        `📦 *CATÁLOGO DE DOWNLOADS DE APKS (PRODUÇÃO)*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `1. ⚽ *MatchPro (4.62 MB)*\n` +
+        `   📥 https://matchpro-alpha.vercel.app/MatchPro.apk\n\n` +
+        `2. 🏗️ *Pladur-Pro (36.6 MB)*\n` +
+        `   📥 https://pladur-pro.vercel.app/PladurPro.apk\n\n` +
+        `3. 🚌 *RotaBus (79.2 MB)*\n` +
+        `   📥 https://smooth-bus-routes.vercel.app/rotabus.apk\n\n` +
+        `4. 🤖 *WhatsApp Dev Assistant (12.97 MB)*\n` +
+        `   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 _Toca no link para descarregar diretamente no teu telemóvel e instalar!_`;
+      return await this.sendMessage(chatId, apksText);
+    }
+
+    // 5. /status ou /pc
+    if (lower === "/status" || lower === "/pc") {
+      const health = await systemService.getSystemHealth();
+      const st =
+        `💻 *ESTADO DO COMPUTADOR & NUVEM*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🖥️ *Máquina:* ${health.os} (${health.hostname})\n` +
+        `⚡ *CPU Load:* ${health.cpuLoad}\n` +
+        `🧠 *Memória RAM:* ${health.ram}\n` +
+        `💾 *Disco:* ${health.disk}\n` +
+        `🔋 *Bateria:* ${health.battery}\n` +
+        `⏱️ *Uptime:* ${health.uptime}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━`;
+      return await this.sendMessage(chatId, st);
+    }
+
+    // 6. /projetos
+    if (lower === "/projetos") {
+      const projects = await universalProjectService.listAllProjects(false);
+      const lines = projects.map((p, idx) => `${idx + 1}. *${p.name}* (${p.type})`);
+      return await this.sendMessage(
+        chatId,
+        `📁 *PROJETOS SINCRONIZADOS (${projects.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n${lines.join("\n")}`
+      );
+    }
+
+    // 7. /emails ou /resumo
+    if (lower === "/emails" || lower === "/resumo" || lower === "/rever_emails") {
+      if (!emailService.isConfigured()) {
+        return await this.sendMessage(
+          chatId,
+          `📧 *Gmail não configurado:*\nConfigura a tua palavra-passe de app Gmail para leres e resumires emails com IA.`
+        );
+      }
+      await this.sendMessage(chatId, `🔍 _A consultar caixa de entrada e a gerar resumo com IA..._`);
+      try {
+        const emails = await emailService.fetchRecentEmails({ limit: 5 });
+        const summary = await emailService.generateEmailsSummary(emails);
+        return await this.sendMessage(chatId, summary);
+      } catch (e) {
+        return await this.sendMessage(chatId, `❌ Erro ao consultar emails: ${e.message}`);
+      }
+    }
+
+    // 8. /agenda ou /hoje
+    if (lower === "/agenda" || lower === "/hoje") {
+      const today = new Date().toISOString().split("T")[0];
+      const events = calendarService.getEventsForDay(today);
+      if (!events || events.length === 0) {
+        return await this.sendMessage(chatId, `📅 *Agenda de Hoje:* Não tens nenhum compromisso marcado para hoje.`);
+      }
+      const list = events.map((e, i) => `${i + 1}. *${e.time}* - ${e.title} (${e.location || 'Sem local'})`).join("\n");
+      return await this.sendMessage(chatId, `📅 *COMPROMISSOS DE HOJE:*\n━━━━━━━━━━━━━━━━━━━━━━━━\n${list}`);
+    }
+
+    // 9. Processamento de Linguagem Natural com IA Gemini (Free Tier)
+    try {
+      const aiRes = await aiService.processNaturalLanguage(text, { user: fromUser });
+      if (aiRes && aiRes.reply) {
+        return await this.sendMessage(chatId, aiRes.reply);
+      }
+    } catch (e) {}
+
+    // Resposta padrão amigável
+    return await this.sendMessage(
+      chatId,
+      `👋 Recebi a tua mensagem, André!\nUsa \`/menu\` para ver os comandos rápidos ou pede-me para \`/criar_app\`.`
+    );
+  }
+}
+
+export const telegramService = new TelegramService();
+export default telegramService;

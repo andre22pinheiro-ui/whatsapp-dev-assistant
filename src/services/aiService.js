@@ -350,6 +350,17 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "LIST_APKS" };
   }
 
+  // Criar / Desenvolver App
+  if (/^(criar app|cria app|nova app|desenvolver app|desenvolve app|fazer app)\b/i.test(userMessage)) {
+    const raw = userMessage.replace(/^(criar app|cria app|nova app|desenvolver app|desenvolve app|fazer app)\s*(chamada|de|para)?\s*/i, "").trim();
+    return { type: "action", action: "CREATE_APP", param: raw };
+  }
+
+  // Verificar emails de prompts
+  if (/^(verificar emails?|processar emails?|ler emails? de app|ver se ha apps no email|verificar email)\b/i.test(userMessage)) {
+    return { type: "action", action: "CHECK_APP_EMAILS" };
+  }
+
   if (
     lower === "ajuda" ||
     lower === "menu" ||

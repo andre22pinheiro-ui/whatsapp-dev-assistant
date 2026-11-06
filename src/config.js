@@ -76,7 +76,9 @@ export const config = {
   imapHost: process.env.IMAP_HOST || settings.imapHost || "imap.gmail.com",
   imapPort: parseInt(process.env.IMAP_PORT || settings.imapPort || "993", 10),
   smtpHost: process.env.SMTP_HOST || settings.smtpHost || "smtp.gmail.com",
-  smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || "465", 10)
+  smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || "465", 10),
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || settings.telegramBotToken || "",
+  telegramChatId: process.env.TELEGRAM_CHAT_ID || settings.telegramChatId || ""
 };
 
 export default config;

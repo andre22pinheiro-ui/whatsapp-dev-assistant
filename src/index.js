@@ -66,6 +66,16 @@ async function main() {
     logger.error("Erro ao inicializar WhatsApp:", err);
   }
 
+  // Iniciar Telegram Bot (100% Free - Sem QR Codes nem chaves de telemóvel)
+  try {
+    const { telegramService } = await import("./services/telegramService.js");
+    if (telegramService.isConfigured()) {
+      telegramService.startPolling();
+    }
+  } catch (err) {
+    logger.warn(`Aviso ao iniciar Telegram Service: ${err.message}`);
+  }
+
   // Iniciar túnel de acesso em nuvem (Cloudflare HTTPS)
   if (config.enableCloudTunnel !== false) {
     try {

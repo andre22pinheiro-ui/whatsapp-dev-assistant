@@ -25,12 +25,17 @@ export function formatHelp(prefix = "/") {
 • \`${prefix}projetos\` - Lista os 22 projetos sincronizados do Surface
 • \`${prefix}diagnostico <proj>\` - Saúde e diagnóstico de ficheiros Gradle/Manifest
 • \`${prefix}corrigir <proj>\` - Auto-cura de erros e dependências
-• \`${prefix}links\` ou \`${prefix}vercel\` - Todos os 8 projetos em produção na Vercel
+• \`${prefix}links\` ou \`${prefix}vercel\` - Todos os projetos em produção na Vercel
 • \`${prefix}apks\` ou \`${prefix}downloads\` - Links diretos de alta velocidade para testar APKs
 • \`${prefix}apk <proj>\` - Envia ou descarrega APK (ex: \`${prefix}apk matchpro\`, \`${prefix}apk rotabus\`)
 • \`${prefix}build <proj>\` - Compila APK Debug e envia no WhatsApp
 • \`${prefix}release <proj>\` - Compila APK de Produção (Release)
 • \`${prefix}studio <proj>\` - Abre o projeto no Android Studio do PC
+
+🚀 *DESENVOLVIMENTO AUTÓNOMO (EMAIL-TO-APP & VERCEL):*
+• \`${prefix}criar-app <nome> : <instruções>\` - Cria app React+Vite+Capacitor, envia para GitHub e publica no Vercel!
+• \`${prefix}verificar-emails\` - Verifica a caixa de correio à procura de novos pedidos de desenvolvimento
+• 📧 _Podes enviar um email para_ \`Andre22pinheiro@gmail.com\` _com o assunto_ \`[App] Nome da App\` _e o Bot desenvolve automaticamente!_
 
 📅 *CALENDÁRIO & GOOGLE CALENDAR:*
 • \`${prefix}agenda\` - Lista os teus compromissos organizados

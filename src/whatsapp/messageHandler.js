@@ -13,6 +13,7 @@ import { recentMessagesStore } from "./client.js";
 import { pcSyncService } from "../services/pcSyncService.js";
 import calendarService from "../services/calendarService.js";
 import emailService from "../services/emailService.js";
+import appScaffoldService from "../services/appScaffoldService.js";
 import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
 export async function handleIncomingMessage(sock, msg, botSentMessageIds = new Set()) {
@@ -79,6 +80,21 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         }
       }
     };
+
+    // Ligar notificador autónomo de email ao WhatsApp
+    if (!emailService.emailNotifier) {
+      emailService.setEmailNotifier(async (text) => {
+        try {
+          const target = "351919115655@s.whatsapp.net";
+          await sock.sendMessage(target, { text });
+        } catch (e) {
+          logger.warn(`Erro no envio de notificação de email para WhatsApp: ${e.message}`);
+        }
+      });
+      if (emailService.isConfigured() && !emailService.schedulerInterval) {
+        emailService.startEmailPoller(60000);
+      }
+    }
 
     // Extrair número limpo do remetente
     const senderNumber = senderJid.replace("@s.whatsapp.net", "");
@@ -355,6 +371,110 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
 
           return await sendReply(senderJid, { text: apksText });
+        }
+
+        case "criar-app":
+        case "criar_app":
+        case "gerar-app": {
+          const rawPrompt = fullArgs || "";
+          if (!rawPrompt.trim()) {
+            return await sendReply(senderJid, {
+              text: `💡 Para criar uma app, indica o nome ou o que pretendes. Exemplo:\n\`${config.prefix}criar-app Gestor Obras : App para controlo de obras e materiais.\``
+            });
+          }
+
+          let appName = "";
+          let appPrompt = "";
+          if (rawPrompt.includes(":")) {
+            const [p1, ...p2] = rawPrompt.split(":");
+            appName = p1.trim();
+            appPrompt = p2.join(":").trim();
+          } else {
+            const parts = rawPrompt.trim().split(" ");
+            appName = parts.slice(0, 2).join(" ");
+            appPrompt = rawPrompt;
+          }
+
+          await sendReply(senderJid, {
+            text:
+              `⚡ *A INICIAR DESENVOLVIMENTO AUTÓNOMO DA APP...*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `📱 *Nome:* *${appName}*\n` +
+              `📝 *Prompt:* "${appPrompt.slice(0, 150)}${appPrompt.length > 150 ? "..." : ""}"\n\n` +
+              `⏳ _1. A estruturar projeto React + Vite + TailwindCSS_\n` +
+              `⏳ _2. A configurar Capacitor Android & GitHub Actions_\n` +
+              `⏳ _3. A criar repositório e fazer push para o GitHub_\n` +
+              `⏳ _4. A efetuar deploy em produção no Vercel_\n\n` +
+              `_Aguarda alguns segundos pelo relatório com os links finais..._`
+          });
+
+          try {
+            const buildRes = await appScaffoldService.buildAndDeployApp({
+              name: appName,
+              prompt: appPrompt,
+              sender: senderJid
+            });
+
+            return await sendReply(senderJid, {
+              text:
+                `🚀 *APP GERADA E PUBLICADA COM SUCESSO!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📱 *Aplicação:* *${buildRes.title}*\n` +
+                `⏱️ *Tempo de execução:* ${buildRes.durationSeconds}s\n\n` +
+                `🌐 *Vercel Web App (Produção):*\n${buildRes.vercelUrl}\n\n` +
+                `🐙 *Repositório GitHub:*\n${buildRes.githubUrl}\n\n` +
+                `📦 *Compilação Android APK (GitHub Actions):*\n${buildRes.actionsUrl}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `💡 _A app já está disponível em produção e pronta para testes no telemóvel!_`
+            });
+          } catch (err) {
+            return await sendReply(senderJid, {
+              text: `❌ *Erro ao gerar a aplicação:*\n${err.message}`
+            });
+          }
+        }
+
+        case "CHECK_APP_EMAILS": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text:
+                `📧 *Configuração de Email Necessária*\n━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `Para o Bot ler os teus emails e desenvolver apps automaticamente, configura a palavra-passe de app Gmail com:\n` +
+                `\`${config.prefix}config email <palavra-passe-app>\``
+            });
+          }
+
+          await sendReply(senderJid, {
+            text: `🔍 _A verificar caixa de correio à procura de novos prompts de desenvolvimento..._`
+          });
+
+          try {
+            const checkRes = await emailService.checkAppPromptEmails();
+            if (!checkRes.checked) {
+              return await sendReply(senderJid, {
+                text: `❌ Não foi possível verificar emails: ${checkRes.reason || checkRes.error}`
+              });
+            }
+
+            if (checkRes.found === 0) {
+              return await sendReply(senderJid, {
+                text:
+                  `📭 *Nenhum novo prompt de app encontrado na caixa de entrada!*\n\n` +
+                  `💡 *Como enviar por email:*\n` +
+                  `Envia um email para \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\` com o assunto:\n` +
+                  `\`[App] Nome da App\` ou \`Criar App: Nome da App\`\n` +
+                  `e descreve o que pretendes no corpo do email.`
+              });
+            }
+
+            return await sendReply(senderJid, {
+              text: `✅ *Processamento concluído:* ${checkRes.found} aplicação(ões) desenvolvida(s) com sucesso a partir de email!`
+            });
+          } catch (e) {
+            return await sendReply(senderJid, {
+              text: `❌ Erro ao processar emails: ${e.message}`
+            });
+          }
         }
 
         case "status":
@@ -1621,6 +1741,108 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
           return await sendReply(senderJid, { text: apksText });
+        }
+
+        case "CREATE_APP": {
+          const rawPrompt = aiResult.param || "";
+          if (!rawPrompt.trim()) {
+            return await sendReply(senderJid, {
+              text: `💡 Para criar uma app, indica o nome ou o que pretendes. Exemplo:\n\`${config.prefix}criar-app Gestor Obras : App para controlo de obras e materiais.\``
+            });
+          }
+
+          let appName = "";
+          let appPrompt = "";
+          if (rawPrompt.includes(":")) {
+            const [p1, ...p2] = rawPrompt.split(":");
+            appName = p1.trim();
+            appPrompt = p2.join(":").trim();
+          } else {
+            const parts = rawPrompt.trim().split(" ");
+            appName = parts.slice(0, 2).join(" ");
+            appPrompt = rawPrompt;
+          }
+
+          await sendReply(senderJid, {
+            text:
+              `⚡ *A INICIAR DESENVOLVIMENTO AUTÓNOMO DA APP...*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `📱 *Nome:* *${appName}*\n` +
+              `📝 *Prompt:* "${appPrompt.slice(0, 150)}${appPrompt.length > 150 ? "..." : ""}"\n\n` +
+              `⏳ _1. A estruturar projeto React + Vite + TailwindCSS_\n` +
+              `⏳ _2. A configurar Capacitor Android & GitHub Actions_\n` +
+              `⏳ _3. A criar repositório e fazer push para o GitHub_\n` +
+              `⏳ _4. A efetuar deploy em produção no Vercel_\n\n` +
+              `_Aguarda alguns segundos pelo relatório com os links finais..._`
+          });
+
+          try {
+            const buildRes = await appScaffoldService.buildAndDeployApp({
+              name: appName,
+              prompt: appPrompt,
+              sender: senderJid
+            });
+
+            return await sendReply(senderJid, {
+              text:
+                `🚀 *APP GERADA E PUBLICADA COM SUCESSO!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📱 *Aplicação:* *${buildRes.title}*\n` +
+                `⏱️ *Tempo de execução:* ${buildRes.durationSeconds}s\n\n` +
+                `🌐 *Vercel Web App (Produção):*\n${buildRes.vercelUrl}\n\n` +
+                `🐙 *Repositório GitHub:*\n${buildRes.githubUrl}\n\n` +
+                `📦 *Compilação Android APK (GitHub Actions):*\n${buildRes.actionsUrl}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `💡 _A app já está disponível em produção e pronta para testes no telemóvel!_`
+            });
+          } catch (err) {
+            return await sendReply(senderJid, {
+              text: `❌ *Erro ao gerar a aplicação:*\n${err.message}`
+            });
+          }
+        }
+
+        case "CHECK_APP_EMAILS": {
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text:
+                `📧 *Configuração de Email Necessária*\n━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `Para o Bot ler os teus emails e desenvolver apps automaticamente, configura a palavra-passe de app Gmail com:\n` +
+                `\`${config.prefix}config email <palavra-passe-app>\``
+            });
+          }
+
+          await sendReply(senderJid, {
+            text: `🔍 _A verificar caixa de correio à procura de novos prompts de desenvolvimento..._`
+          });
+
+          try {
+            const checkRes = await emailService.checkAppPromptEmails();
+            if (!checkRes.checked) {
+              return await sendReply(senderJid, {
+                text: `❌ Não foi possível verificar emails: ${checkRes.reason || checkRes.error}`
+              });
+            }
+
+            if (checkRes.found === 0) {
+              return await sendReply(senderJid, {
+                text:
+                  `📭 *Nenhum novo prompt de app encontrado na caixa de entrada!*\n\n` +
+                  `💡 *Como enviar por email:*\n` +
+                  `Envia um email para \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\` com o assunto:\n` +
+                  `\`[App] Nome da App\` ou \`Criar App: Nome da App\`\n` +
+                  `e descreve o que pretendes no corpo do email.`
+              });
+            }
+
+            return await sendReply(senderJid, {
+              text: `✅ *Processamento concluído:* ${checkRes.found} aplicação(ões) desenvolvida(s) com sucesso a partir de email!`
+            });
+          } catch (e) {
+            return await sendReply(senderJid, {
+              text: `❌ Erro ao processar emails: ${e.message}`
+            });
+          }
         }
 
         case "ADD_TASK": {

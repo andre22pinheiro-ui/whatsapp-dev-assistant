@@ -510,6 +510,34 @@ export function createWebServer() {
     }
   });
 
+  // 8.2 DESENVOLVIMENTO AUTÓNOMO DE APPS VIA API
+  app.post("/api/app/generate", async (req, res) => {
+    try {
+      const { appScaffoldService } = await import("../services/appScaffoldService.js");
+      const { name, prompt, sender } = req.body || {};
+      if (!name || !prompt) {
+        return res.status(400).json({ success: false, error: "Nome ('name') e prompt ('prompt') são obrigatórios." });
+      }
+      logger.info(`🌐 Requisição API recebida para gerar app '${name}'...`);
+      const result = await appScaffoldService.buildAndDeployApp({ name, prompt, sender });
+      res.json({ success: true, app: result });
+    } catch (e) {
+      logger.error("Erro na API ao gerar app:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post("/api/email/check-prompts", async (req, res) => {
+    try {
+      const { emailService } = await import("../services/emailService.js");
+      const result = await emailService.checkAppPromptEmails();
+      res.json({ success: true, result });
+    } catch (e) {
+      logger.error("Erro na verificação de emails de prompts via API:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // 9. FORÇAR RECONEXÃO / GERAR NOVO CÓDIGO
   app.post("/api/reconnect", async (req, res) => {
     const { target, reset, restartProcess } = req.body || {};

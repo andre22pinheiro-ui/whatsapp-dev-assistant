@@ -357,6 +357,45 @@ export function createWebServer() {
     res.json(result);
   });
 
+  // 7.0.1 LISTA DE COMPRAS NA NUVEM
+  app.get("/api/shopping", (req, res) => {
+    res.json({ success: true, items: personalAssistant.getShoppingList() });
+  });
+
+  app.post("/api/shopping", (req, res) => {
+    const { text, category, qty } = req.body || {};
+    if (!text) return res.status(400).json({ error: "Nome do artigo em falta" });
+    const item = personalAssistant.addShoppingItem(text, category, qty);
+    res.json({ success: true, item, items: personalAssistant.getShoppingList() });
+  });
+
+  app.post("/api/shopping/:id/toggle", (req, res) => {
+    const item = personalAssistant.toggleShoppingItem(req.params.id);
+    res.json({ success: !!item, item, items: personalAssistant.getShoppingList() });
+  });
+
+  app.delete("/api/shopping/:id", (req, res) => {
+    const ok = personalAssistant.removeShoppingItem(req.params.id);
+    res.json({ success: ok, items: personalAssistant.getShoppingList() });
+  });
+
+  app.post("/api/shopping/clear", (req, res) => {
+    const items = personalAssistant.clearCheckedShoppingItems();
+    res.json({ success: true, items });
+  });
+
+  // 7.0.2 GESTÃO DE DESPESAS
+  app.get("/api/expenses", (req, res) => {
+    res.json({ success: true, expenses: personalAssistant.getExpenses() });
+  });
+
+  app.post("/api/expenses", (req, res) => {
+    const { amount, category, description } = req.body || {};
+    if (!amount) return res.status(400).json({ error: "Valor da despesa em falta" });
+    const exp = personalAssistant.addExpense(amount, category, description);
+    res.json({ success: true, expense: exp, expenses: personalAssistant.getExpenses() });
+  });
+
   // 7.1 ORDENS DO CHAT ANTIGRAVITY (WHATSAPP BRIDGE)
   app.get("/api/chat-orders", (req, res) => {
     res.json({

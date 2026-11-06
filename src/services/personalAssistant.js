@@ -197,6 +197,139 @@ export function generateIcsContent(title, startDate, durationMinutes = 30) {
   ].join("\r\n");
 }
 
+// 5. LISTA DE COMPRAS NA NUVEM (SHOPPING LIST & STOCK)
+export function getShoppingList() {
+  return readData("shopping_list", [
+    { id: "shp_1", text: "Café em grão", category: "Alimentação", qty: "1 pacote", completed: false, createdAt: new Date().toISOString() },
+    { id: "shp_2", text: "Água mineral", category: "Alimentação", qty: "1 garrafão", completed: false, createdAt: new Date().toISOString() }
+  ]);
+}
+
+export function addShoppingItem(text, category = "Geral", qty = "") {
+  const items = getShoppingList();
+  const newItem = {
+    id: "shp_" + Date.now().toString(),
+    text: text.trim(),
+    category: category.trim() || "Geral",
+    qty: (qty || "").trim(),
+    completed: false,
+    createdAt: new Date().toISOString()
+  };
+  items.push(newItem);
+  writeData("shopping_list", items);
+  logger.info(`🛒 Item adicionado à Lista de Compras: "${newItem.text}" (${newItem.qty || '1 un'})`);
+  return newItem;
+}
+
+export function toggleShoppingItem(identifier) {
+  const items = getShoppingList();
+  const idStr = String(identifier).toLowerCase().trim();
+  const item = items.find((i) => i.id === idStr || i.id.endsWith(idStr) || i.text.toLowerCase().includes(idStr));
+  if (!item) return null;
+  item.completed = !item.completed;
+  writeData("shopping_list", items);
+  return item;
+}
+
+export function removeShoppingItem(identifier) {
+  let items = getShoppingList();
+  const initialLen = items.length;
+  const idStr = String(identifier).toLowerCase().trim();
+  items = items.filter((i) => i.id !== idStr && !i.id.endsWith(idStr) && !i.text.toLowerCase().includes(idStr));
+  if (items.length !== initialLen) {
+    writeData("shopping_list", items);
+    return true;
+  }
+  return false;
+}
+
+export function clearCheckedShoppingItems() {
+  let items = getShoppingList();
+  items = items.filter((i) => !i.completed);
+  writeData("shopping_list", items);
+  return items;
+}
+
+export function formatShoppingList() {
+  const items = getShoppingList();
+  if (!items || items.length === 0) {
+    return "🛒 *LISTA DE COMPRAS NA NUVEM*\n━━━━━━━━━━━━━━━━━━━━━━━━\nA tua lista está vazia! Não precisas de comprar nada.\n\n💡 _Para adicionar:_ `/comprar <item> [quantidade]` ou _\"adicionar leite à lista\"_";
+  }
+
+  const pending = items.filter((i) => !i.completed);
+  const bought = items.filter((i) => i.completed);
+
+  const sb = [];
+  sb.push("🛒 *LISTA DE COMPRAS NA NUVEM*");
+  sb.push("━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  if (pending.length > 0) {
+    sb.push(`📋 *POR COMPRAR (${pending.length}):*`);
+    pending.forEach((it, idx) => {
+      const q = it.qty ? ` _(${it.qty})_` : "";
+      sb.push(`  ${idx + 1}. ⭕ *${it.text}*${q} [${it.category}]`);
+    });
+  } else {
+    sb.push("🎉 Todos os artigos foram comprados!");
+  }
+
+  if (bought.length > 0) {
+    sb.push("");
+    sb.push(`✅ *COMPRADOS / NO CARRINHO (${bought.length}):*`);
+    bought.forEach((it) => {
+      sb.push(`  • ~${it.text}~`);
+    });
+  }
+
+  sb.push("━━━━━━━━━━━━━━━━━━━━━━━━");
+  sb.push("💡 _Comandos Rápidos:_");
+  sb.push("• `/comprar <artigo>` - Adiciona novo item");
+  sb.push("• `/riscar <artigo ou número>` - Marca como comprado");
+  sb.push("• `/limpar_compras` - Remove os comprados");
+
+  return sb.join("\n");
+}
+
+// 6. GESTÃO DE DESPESAS RÁPIDAS
+export function getExpenses() {
+  return readData("expenses", []);
+}
+
+export function addExpense(amount, category = "Geral", description = "") {
+  const expenses = getExpenses();
+  const num = parseFloat(String(amount).replace(",", ".").replace(/[^0-9.]/g, "")) || 0;
+  const newExp = {
+    id: "exp_" + Date.now().toString(),
+    amount: num,
+    category: (category || "Geral").trim(),
+    description: (description || "").trim(),
+    date: new Date().toISOString()
+  };
+  expenses.push(newExp);
+  writeData("expenses", expenses);
+  return newExp;
+}
+
+export function formatExpenseSummary() {
+  const expenses = getExpenses();
+  if (expenses.length === 0) {
+    return "💰 *CONTROLO DE DESPESAS:* Nenhuma despesa registada ainda.\n💡 _Para registar:_ `/despesa 50€ em gasóleo`";
+  }
+
+  const total = expenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+  const recent = expenses.slice(-5).reverse();
+
+  const lines = recent.map((e) => `• *${e.amount.toFixed(2)}€* - ${e.description || e.category} (${new Date(e.date).toLocaleDateString("pt-PT")})`);
+  return (
+    `💰 *REGISTO DE DESPESAS & GASTOS*\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💳 *Total Acumulado:* *${total.toFixed(2)}€*\n\n` +
+    `📝 *Últimos Gastos:*\n${lines.join("\n")}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💡 _Para adicionar:_ \`/despesa <valor>€ <descrição>\``
+  );
+}
+
 export default {
   getTasks,
   addTask,
@@ -207,6 +340,15 @@ export default {
   setReminderNotifier,
   getNotes,
   addNote,
+  getShoppingList,
+  addShoppingItem,
+  toggleShoppingItem,
+  removeShoppingItem,
+  clearCheckedShoppingItems,
+  formatShoppingList,
+  getExpenses,
+  addExpense,
+  formatExpenseSummary,
   generateGoogleCalendarUrl,
   generateIcsContent
 };

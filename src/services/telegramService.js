@@ -16,6 +16,7 @@ import apiLinkService from "./apiLinkService.js";
 import groqService from "./groqService.js";
 import amaranteMapService from "./amaranteMapService.js";
 import cloudinaryService from "./cloudinaryService.js";
+import huggingfaceService from "./huggingfaceService.js";
 
 class TelegramService {
   constructor() {
@@ -498,6 +499,9 @@ class TelegramService {
           cloudinaryService.saveCredentials({ secret: val });
           return await this.sendMessage(chatId, `✅ *Cloudinary Secret guardado!*\n${cloudinaryService.getStatus()}`);
         }
+      } else if (target === "huggingface" || target === "hf") {
+        huggingfaceService.saveToken(val);
+        return await this.sendMessage(chatId, `✅ *Token do Hugging Face guardado com sucesso!*\n${huggingfaceService.getStatus()}`);
       } else {
         saveSettings({ [target]: val });
         return await this.sendMessage(chatId, `✅ *Definição '${target}' guardada com sucesso!*`);
@@ -507,6 +511,11 @@ class TelegramService {
     // 1.4 Estado do Cloudinary CDN
     if (cleanCmd === "cloudinary" || cleanCmd === "cdn") {
       return await this.sendMessage(chatId, cloudinaryService.getStatus());
+    }
+
+    // 1.5 Estado do Hugging Face Hub
+    if (cleanCmd === "huggingface" || cleanCmd === "hf") {
+      return await this.sendMessage(chatId, huggingfaceService.getStatus());
     }
     if (cleanCmd.startsWith("config_email") || cleanCmd.startsWith("config-email") || cleanCmd.startsWith("senha_email")) {
       let rawPass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();

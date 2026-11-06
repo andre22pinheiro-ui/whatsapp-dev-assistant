@@ -1,14 +1,13 @@
 import telegramService from "../src/services/telegramService.js";
-import cloudinaryService from "../src/services/cloudinaryService.js";
+import huggingfaceService from "../src/services/huggingfaceService.js";
 
 async function main() {
   const msg = 
-`☁️ *CREDENCIAIS CLOUDINARY ATUALIZADAS!*
+`🤗 *HUGGING FACE TOKEN ATIVADO!*
 ━━━━━━━━━━━━━━━━━━━━━━━━
-${cloudinaryService.getStatus()}
+${huggingfaceService.getStatus()}
 
-💡 Para associar o teu Cloud Name e API Key:
-\`/config cloudinary <cloud_name> <api_key>\``;
+💡 Consultar a qualquer momento: \`/hf\` ou \`/huggingface\``;
 
   const res = await telegramService.notifyOwner(msg);
   console.log("Mensagem Telegram enviada:", res?.ok ? "SUCESSO" : JSON.stringify(res));

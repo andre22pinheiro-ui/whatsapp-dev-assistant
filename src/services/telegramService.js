@@ -208,9 +208,9 @@ class TelegramService {
     // 1. /start ou /menu ou /ajuda
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {
       const welcome =
-        `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM 100% FREE)*\n` +
+        `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM PRIVADO)*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `Olá, André! O teu assistente está 100% conectado e sincronizado com o Surface e a Nuvem.\n\n` +
+        `Olá, André! O teu assistente está 100% conectado, exclusivo e sincronizado.\n\n` +
         `🚀 *DESENVOLVIMENTO AUTÓNOMO (PROMPT-TO-APP):*\n` +
         `• \`/criar_app <nome> : <prompt>\` - Desenvolve app React+Vite+Capacitor, envia para o GitHub e publica na Vercel!\n` +
         `• \`/verificar_emails\` - Lê a caixa de correio por pedidos de apps\n\n` +
@@ -221,12 +221,54 @@ class TelegramService {
         `👔 *GESTOR PESSOAL (EMAIL & AGENDA):*\n` +
         `• \`/gestor\` - Resumo executivo diário\n` +
         `• \`/hoje\` ou \`/agenda\` - Compromissos do dia\n` +
-        `• \`/emails\` - Resumo com IA dos últimos emails recebidos\n` +
+        `• \`/emails\` - Resumo dos últimos emails recebidos\n` +
         `• \`/status\` - Saúde do PC (CPU, RAM, Bateria)\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `💡 _Podes também escrever normalmente ou enviar mensagens de voz!_`;
+        `💡 _Podes também pedir diretamente em linguagem natural ou áudio!_`;
 
       return await this.sendMessage(chatId, welcome);
+    }
+
+    // 1.1 Perguntas sobre Gmail / Acesso ao Email
+    if (/gmail|email|correio/i.test(cleanCmd) && (cleanCmd.includes("acesso") || cleanCmd.includes("tens") || cleanCmd.includes("como") || cleanCmd.includes("ligar"))) {
+      const isConf = emailService.isConfigured();
+      if (isConf) {
+        return await this.sendMessage(
+          chatId,
+          `📧 *ACESSO AO GMAIL ATIVO!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `Conta associada: \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\`\n\n` +
+          `• \`/emails\` - Consultar e resumir emails recentes\n` +
+          `• \`/verificar_emails\` - Procurar pedidos de criação de apps enviados por email\n` +
+          `• Envia um email para \`Andre22pinheiro@gmail.com\` com o assunto \`[App] Nome\` e eu desenvolvo tudo!`
+        );
+      } else {
+        return await this.sendMessage(
+          chatId,
+          `📧 *CONFIGURAÇÃO DO GMAIL (100% FREE)*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `Conta associada: \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\`\n\n` +
+          `Para eu aceder à tua caixa de correio em segurança:\n` +
+          `1. Na tua Conta Google: **Segurança** ➔ **Palavras-passe de aplicação**\n` +
+          `2. Cria uma para "Bot" (gera 16 letras, ex: \`abcd efgh ijkl mnop\`)\n` +
+          `3. Envia-me aqui: \`/config_email <as-16-letras>\`\n\n` +
+          `Assim que enviares, fico imediatamente com acesso para ler prompts por email e resumir a tua caixa!`
+        );
+      }
+    }
+
+    // 1.2 Configurar palavra-passe do Gmail
+    if (cleanCmd.startsWith("config_email") || cleanCmd.startsWith("config-email") || cleanCmd.startsWith("senha_email")) {
+      const pass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();
+      if (!pass) {
+        return await this.sendMessage(chatId, `💡 Envia: \`/config_email <palavra-passe-app-16-letras>\``);
+      }
+      emailService.saveCredentials({ email: config.authEmail || "Andre22pinheiro@gmail.com", password: pass });
+      return await this.sendMessage(
+        chatId,
+        `✅ *Palavra-passe do Gmail guardada com sucesso!*\n` +
+        `Agora já tenho acesso seguro para ler emails e detetar pedidos de criação de apps automaticamente. Usa \`/emails\` para testares!`
+      );
     }
 
     // 2. /criar_app ou /criar-app ou criar app

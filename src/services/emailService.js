@@ -83,8 +83,20 @@ class EmailService {
     });
   }
 
-  // Obter emails recentes (não lidos ou gerais)
-  async fetchRecentEmails({ limit = 5, unreadOnly = false, query = "" } = {}) {
+  // Obter emails recentes (com timeout defensivo de 4s para nunca bloquear o bot)
+  async fetchRecentEmails(options = {}) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout Gmail (4s)")), 4000)
+      );
+      return await Promise.race([this._doFetchRecentEmails(options), timeoutPromise]);
+    } catch (e) {
+      logger.warn(`Aviso no fetch de emails: ${e.message}`);
+      return [];
+    }
+  }
+
+  async _doFetchRecentEmails({ limit = 5, unreadOnly = false, query = "" } = {}) {
     const client = this.getImapClient();
     const emails = [];
 
@@ -458,6 +470,18 @@ Formate em Markdown para WhatsApp em português de Portugal.
       return { checked: false, reason: "Email não configurado." };
     }
 
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout verificação email (5s)")), 5000)
+      );
+      return await Promise.race([this._doCheckAppPromptEmails(), timeoutPromise]);
+    } catch (e) {
+      logger.warn(`Aviso ao verificar emails: ${e.message}`);
+      return { checked: false, reason: e.message };
+    }
+  }
+
+  async _doCheckAppPromptEmails() {
     logger.info("📬 A verificar caixa de correio à procura de prompts para criação de Apps...");
     const client = this.getImapClient();
     const processedApps = [];

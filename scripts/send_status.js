@@ -1,14 +1,11 @@
 import telegramService from "../src/services/telegramService.js";
-import orsRouteService from "../src/services/orsRouteService.js";
+import cloudinaryService from "../src/services/cloudinaryService.js";
 
 async function main() {
   const msg = 
-`🛣️ *OPENROUTESERVICE (ROTABUS) ATIVADO!*
+`☁️ *DEFINIÇÕES DO CLOUDINARY ATUALIZADAS!*
 ━━━━━━━━━━━━━━━━━━━━━━━━
-${orsRouteService.getStatus()}
-
-💡 Teste rápido de gabarito e tempos de rota:
-\`/rota Amarante para Penafiel\` ou \`/rota Amarante para Porto\``;
+${cloudinaryService.getStatus()}`;
 
   const res = await telegramService.notifyOwner(msg);
   console.log("Mensagem Telegram enviada:", res?.ok ? "SUCESSO" : JSON.stringify(res));

@@ -9,13 +9,15 @@ class CloudinaryService {
     this.secret = config.cloudinarySecret || "";
     this.apiKey = config.cloudinaryApiKey || "";
     this.cloudName = config.cloudinaryCloudName || "";
+    this.uploadPreset = config.cloudinaryUploadPreset || "ml_default";
+    this.environmentId = config.cloudinaryEnvironmentId || "";
   }
 
   isConfigured() {
     return Boolean(config.cloudinarySecret && config.cloudinarySecret.trim());
   }
 
-  saveCredentials({ secret, apiKey, cloudName }) {
+  saveCredentials({ secret, apiKey, cloudName, uploadPreset, environmentId }) {
     const update = {};
     if (secret) {
       config.cloudinarySecret = secret.trim();
@@ -29,49 +31,94 @@ class CloudinaryService {
       config.cloudinaryCloudName = cloudName.trim();
       update.cloudinaryCloudName = cloudName.trim();
     }
+    if (uploadPreset) {
+      config.cloudinaryUploadPreset = uploadPreset.trim();
+      update.cloudinaryUploadPreset = uploadPreset.trim();
+    }
+    if (environmentId) {
+      config.cloudinaryEnvironmentId = environmentId.trim();
+      update.cloudinaryEnvironmentId = environmentId.trim();
+    }
+
     saveSettings(update);
     logger.info("☁️ Credenciais do Cloudinary guardadas com sucesso.");
     return true;
   }
 
-  // Gera assinatura de autenticação para upload seguro na Cloudinary API
+  // Auto-deteta os tipos de parâmetros passados pelo utilizador
+  processConfigInput(rawInput) {
+    const cleanTokens = rawInput
+      .replace(/[<>]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const update = {};
+
+    for (const token of cleanTokens) {
+      // 1. UUID v4 -> Environment ID
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+        update.environmentId = token;
+      }
+      // 2. Preset (ml_default ou similar)
+      else if (token.toLowerCase() === "ml_default" || token.toLowerCase().includes("preset")) {
+        update.uploadPreset = token;
+      }
+      // 3. API Key (sequência puramente numérica de 10 a 20 dígitos)
+      else if (/^\d{10,20}$/.test(token)) {
+        update.apiKey = token;
+      }
+      // 4. API Secret (27 caracteres com hífen/underscore)
+      else if (/^[A-Za-z0-9_-]{24,32}$/.test(token) && token.includes("-")) {
+        update.secret = token;
+      }
+      // 5. Cloud Name (nome curto alfanumérico)
+      else if (/^[a-z0-9_-]{3,30}$/i.test(token)) {
+        update.cloudName = token;
+      }
+    }
+
+    this.saveCredentials(update);
+    return update;
+  }
+
+  // Gera assinatura SHA-1 para upload seguro autenticado
   generateSignature(params) {
     const sortedKeys = Object.keys(params).sort();
     const toSign = sortedKeys.map(k => `${k}=${params[k]}`).join("&") + config.cloudinarySecret;
     return crypto.createHash("sha1").update(toSign).digest("hex");
   }
 
-  // Upload de imagem ou ficheiro para a CDN Cloudinary
+  // Upload para Cloudinary CDN (Suporta Upload Preset Unsigned ou Assinado)
   async uploadMedia(bufferOrBase64, { folder = "antigravity-media", publicId = null } = {}) {
-    if (!config.cloudinarySecret) {
-      logger.warn("Cloudinary Secret não configurado.");
-      return null;
-    }
-
-    if (!config.cloudinaryCloudName || !config.cloudinaryApiKey) {
-      logger.warn("Cloudinary Cloud Name ou API Key em falta para upload completo.");
+    if (!config.cloudinaryCloudName) {
+      logger.warn("Cloudinary Cloud Name em falta para upload.");
       return {
         success: false,
-        message: "Necessário Cloud Name e API Key além do Secret. Configura com /config cloudinary <cloud_name> <api_key>"
+        message: "Necessário Cloud Name. Configura com /config cloudinary <cloud_name>"
       };
     }
 
     try {
-      const timestamp = Math.round(Date.now() / 1000);
-      const params = {
-        folder,
-        timestamp
-      };
-      if (publicId) params.public_id = publicId;
-
-      const signature = this.generateSignature(params);
-
       const formData = new FormData();
-      formData.append("timestamp", timestamp);
-      formData.append("folder", folder);
-      formData.append("api_key", config.cloudinaryApiKey);
-      formData.append("signature", signature);
-      if (publicId) formData.append("public_id", publicId);
+      const timestamp = Math.round(Date.now() / 1000);
+
+      if (config.cloudinaryApiKey && config.cloudinarySecret) {
+        // Upload assinado
+        const params = { folder, timestamp };
+        if (publicId) params.public_id = publicId;
+        const signature = this.generateSignature(params);
+
+        formData.append("timestamp", timestamp);
+        formData.append("folder", folder);
+        formData.append("api_key", config.cloudinaryApiKey);
+        formData.append("signature", signature);
+        if (publicId) formData.append("public_id", publicId);
+      } else {
+        // Upload com Preset
+        formData.append("upload_preset", config.cloudinaryUploadPreset || "ml_default");
+        formData.append("folder", folder);
+      }
 
       if (Buffer.isBuffer(bufferOrBase64)) {
         const blob = new Blob([bufferOrBase64]);
@@ -110,21 +157,24 @@ class CloudinaryService {
     const hasSecret = Boolean(config.cloudinarySecret);
     const hasKey = Boolean(config.cloudinaryApiKey);
     const hasCloud = Boolean(config.cloudinaryCloudName);
+    const hasPreset = Boolean(config.cloudinaryUploadPreset);
+    const hasEnvId = Boolean(config.cloudinaryEnvironmentId);
 
     return (
-      `☁️ *ESTADO DO CLOUDINARY (CDN & MEDIA STORAGE)*\n` +
+      `☁️ *ESTADO DO CLOUDINARY (MEDIA STORAGE & CDN)*\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `• *API Secret:* ${hasSecret ? "Configurado (`" + config.cloudinarySecret.slice(0, 6) + "..." + config.cloudinarySecret.slice(-4) + "`)" : "❌ Não configurado"}\n` +
-      `• *API Key:* ${hasKey ? "`" + config.cloudinaryApiKey + "`" : "⏳ Pendente (Opcional se usar Unsigned Preset)"}\n` +
-      `• *Cloud Name:* ${hasCloud ? "`" + config.cloudinaryCloudName + "`" : "⏳ Pendente"}\n` +
+      `• *Upload Preset:* \`${config.cloudinaryUploadPreset || "ml_default"}\` ✅\n` +
+      `• *Environment ID:* ${hasEnvId ? "`" + config.cloudinaryEnvironmentId + "` ✅" : "⏳ Pendente"}\n` +
+      `• *API Secret:* ${hasSecret ? "Configurado (`" + config.cloudinarySecret.slice(0, 6) + "..." + config.cloudinarySecret.slice(-4) + "`) ✅" : "❌ Não configurado"}\n` +
+      `• *Cloud Name:* ${hasCloud ? "`" + config.cloudinaryCloudName + "` ✅" : "⏳ Pendente (Ex: `d...` ou nome do teu espaço)"}\n` +
+      `• *API Key:* ${hasKey ? "`" + config.cloudinaryApiKey + "` ✅" : "⏳ Pendente (Número de 15 dígitos)"}\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      (hasCloud && hasKey && hasSecret
-        ? `✅ *Pronto para uploads de media para a CDN!*\n`
-        : `💡 _Para associar o teu Cloud Name e API Key:_\n\`/config cloudinary <cloud_name> <api_key>\` (ex: \`/config cloudinary meucloud 123456789\`)`)
+      (hasCloud
+        ? `✅ *Pronto para uploads diretos para a CDN!*\n`
+        : `💡 *Quase pronto!* No teu painel Cloudinary (https://console.cloudinary.com/pm):\nCopia o teu **Cloud Name** e a **API Key** (15 dígitos) e envia:\n\`/config cloudinary <cloud_name> <api_key>\``)
     );
   }
 }
 
 export const cloudinaryService = new CloudinaryService();
 export default cloudinaryService;
-

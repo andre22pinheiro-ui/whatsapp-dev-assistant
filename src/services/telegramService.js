@@ -528,14 +528,8 @@ class TelegramService {
         saveSettings({ geminiApiKey: val });
         return await this.sendMessage(chatId, `✅ *Chave Gemini guardada com sucesso!*`);
       } else if (target === "cloudinary") {
-        const cParts = val.split(/\s+/);
-        if (cParts.length >= 2) {
-          cloudinaryService.saveCredentials({ cloudName: cParts[0], apiKey: cParts[1], secret: cParts[2] || config.cloudinarySecret });
-          return await this.sendMessage(chatId, `✅ *Cloudinary configurado com sucesso!*\n${cloudinaryService.getStatus()}`);
-        } else {
-          cloudinaryService.saveCredentials({ secret: val });
-          return await this.sendMessage(chatId, `✅ *Cloudinary Secret guardado!*\n${cloudinaryService.getStatus()}`);
-        }
+        cloudinaryService.processConfigInput(val);
+        return await this.sendMessage(chatId, `✅ *Definições do Cloudinary atualizadas!*\n\n${cloudinaryService.getStatus()}`);
       } else if (target === "huggingface" || target === "hf") {
         huggingfaceService.saveToken(val);
         return await this.sendMessage(chatId, `✅ *Token do Hugging Face guardado com sucesso!*\n${huggingfaceService.getStatus()}`);

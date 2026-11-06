@@ -96,13 +96,13 @@ export const API_PROVIDERS = {
   dre_eurlex: {
     name: "DRE.pt (INCM) & EUR-Lex",
     category: "Legislação Portuguesa & Diretivas/Regulamentos da União Europeia",
-    freeTier: "100% Acesso Público Gratuito (DRE Open Data / EUR-Lex SPARQL & REST)",
+    freeTier: "Acesso Livre & Aberto (Sem necessidade de Chave ou Token de API)",
     url: "https://dre.pt / https://eur-lex.europa.eu",
-    portal: "https://dre.pt/dre/servicos-digitais/api / https://eur-lex.europa.eu/content/help/data-reuse/api.html",
+    portal: "Acesso Direto Público",
     steps: [
-      "1. Para DRE.pt: O acesso aos atos normativos, Código da Estrada e diplomas é público e indexável via https://dre.pt.",
-      "2. Para API DRE: Acesso ao catálogo de dados abertos da INCM em https://dre.pt/dre/servicos-digitais/api.",
-      "3. Para EUR-Lex (Regulamentos CE 561/2006, UE 165/2014, GSR2): Endpoint SPARQL gratuito em https://publications.europa.eu/webapi/rdf/sparql e serviço REST via registo gratuito no EU Login (https://eur-lex.europa.eu)."
+      "1. DRE.pt e EUR-Lex NÃO exigem chaves nem tokens privados.",
+      "2. O bot consulta a legislação diretamente através da base interna determinística (portugalLawService) e endpoints públicos de dados abertos.",
+      "3. Não precisas de registar contas nem gerar credenciais para este módulo: já está 100% ativo."
     ]
   },
   github: {

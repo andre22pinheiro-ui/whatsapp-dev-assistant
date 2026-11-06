@@ -190,7 +190,11 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
     let commandText = text;
     if (!isCommand) {
       const normalized = text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const directKeywords = ["projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud", "agenda", "calendario", "eventos", "evento", "confirmar", "agentes", "agentx", "frota", "rotabus", "matchpro", "pladur"];
+      const directKeywords = [
+        "projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud",
+        "agenda", "calendario", "eventos", "evento", "confirmar", "agentes", "agentx", "frota", "rotabus",
+        "matchpro", "pladur", "gestor", "hoje", "amanha", "rascunhos", "rascunho", "emails", "email", "inbox"
+      ];
       const firstWord = normalized.split(/\s+/)[0];
       if (directKeywords.includes(firstWord)) {
         isCommand = true;
@@ -698,9 +702,119 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
           });
         }
 
+        case "gestor":
+        case "gestor-pessoal":
+        case "painel": {
+          const now = new Date();
+          const todayStr = now.toISOString().split("T")[0];
+          const tomorrow = new Date(now);
+          tomorrow.setDate(now.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+          const todayEvents = calendarService.getEventsForDay(todayStr);
+          const tomorrowEvents = calendarService.getEventsForDay(tomorrowStr);
+          const tasks = personalAssistant.getTasks();
+          const drafts = emailService.getDrafts();
+          const isEmailConfigured = emailService.isConfigured();
+
+          const dashboard = formatter.formatPersonalManagerDashboard({
+            todayEvents,
+            tomorrowEvents,
+            tasks,
+            drafts,
+            isEmailConfigured,
+            emailUser: config.emailUser
+          });
+
+          return await sendReply(senderJid, { text: dashboard });
+        }
+
+        case "hoje":
+        case "agenda-hoje": {
+          const report = calendarService.formatDayAgenda(null, "Hoje");
+          return await sendReply(senderJid, { text: report });
+        }
+
+        case "amanha":
+        case "agenda-amanha": {
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(now.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split("T")[0];
+          const report = calendarService.formatDayAgenda(tomorrowStr, "Amanhã");
+          return await sendReply(senderJid, { text: report });
+        }
+
+        case "anotar-evento":
+        case "marcar-evento": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `📅 *Como anotar eventos no calendário:*\n\n\`${prefix}anotar-evento amanhã às 15h Reunião de obras\`\nou\n\`${prefix}anotar-evento sexta 10:30 Consulta médica\``
+            });
+          }
+          const parsed = calendarService.parseQuickEventPhrase(fullArgs);
+          const conflicts = calendarService.checkConflicts(parsed.date, parsed.time, parsed.durationMinutes);
+          const ev = calendarService.addEvent(parsed);
+          const gcalUrl = personalAssistant.generateGoogleCalendarUrl(ev.title, ev.dateTime, ev.durationMinutes);
+          const ics = personalAssistant.generateIcsContent(ev.title, ev.dateTime, ev.durationMinutes);
+
+          let conflictNotice = "";
+          if (conflicts && conflicts.length > 0) {
+            conflictNotice = `\n⚠️ *Aviso de Conflito de Horário!* Já tens compromisso marcado nesse intervalo:\n• ${conflicts.map((c) => `${c.time} - ${c.title}`).join(", ")}\n`;
+          }
+
+          let replyText =
+            `📅 *EVENTO ANOTADO COM SUCESSO!*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 *Título:* _${ev.title}_\n` +
+            `📅 *Data:* *${ev.date}*\n` +
+            `🕒 *Hora:* *${ev.time}* (${ev.durationMinutes} min)\n` +
+            `${conflictNotice}\n` +
+            `🔗 *Adicionar ao Google Calendar (1 clique):*\n${gcalUrl}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🔔 _Receberás um lembrete automático no WhatsApp 15 minutos antes!_`;
+
+          await sendReply(senderJid, { text: replyText });
+
+          if (ics) {
+            try {
+              await sendReply(senderJid, {
+                document: Buffer.from(ics, "utf8"),
+                mimetype: "text/calendar",
+                fileName: `${ev.title.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}.ics`,
+                caption: `📅 Evento Google Calendar: *${ev.title}*`
+              });
+            } catch (e) {}
+          }
+          return;
+        }
+
+        case "procurar-evento":
+        case "pesquisar-evento": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o termo a pesquisar no calendário.*\nExemplo: \`${prefix}procurar-evento Reunião\` ou \`${prefix}procurar-evento Maia\``
+            });
+          }
+          const results = calendarService.searchEvents(fullArgs);
+          if (!results || results.length === 0) {
+            return await sendReply(senderJid, {
+              text: `🔍 *Nenhum evento encontrado no calendário para "${fullArgs}".*\nUsa \`/agenda\` para rever a semana toda.`
+            });
+          }
+          let report = `🔍 *EVENTOS ENCONTRADOS PARA "${fullArgs}" (${results.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          results.forEach((e, idx) => {
+            report += `${idx + 1}. 📅 *${e.date}* às 🕒 *${e.time}* - *${e.title}* (#${e.id})\n`;
+          });
+          report += `━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Para cancelar algum: \`/cancelar-evento <id>\`_`;
+          return await sendReply(senderJid, { text: report });
+        }
+
         case "agenda":
         case "calendario":
-        case "eventos": {
+        case "eventos":
+        case "rever-agenda":
+        case "rever-calendario": {
           if (!fullArgs) {
             return await sendReply(senderJid, { text: calendarService.formatAgenda() });
           }
@@ -877,6 +991,8 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
 
         case "emails":
         case "email":
+        case "rever-emails":
+        case "inbox":
         case "resumo-emails":
         case "resumo_emails": {
           if (!emailService.isConfigured()) {
@@ -908,7 +1024,8 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         }
 
         case "ler-email":
-        case "ler_email": {
+        case "ler_email":
+        case "rever-email": {
           if (!fullArgs) {
             return await sendReply(senderJid, {
               text: `⚠️ *Indica o ID do email a ler.*\nExemplo: \`${prefix}ler-email 1234\``
@@ -930,6 +1047,107 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             return await sendReply(senderJid, { text: detailedSummary });
           } catch (err) {
             return await sendReply(senderJid, { text: `❌ Erro ao ler email: ${err.message}` });
+          }
+        }
+
+        case "rascunhos":
+        case "rever-rascunhos":
+        case "ver-rascunhos": {
+          const list = emailService.formatDraftsList();
+          return await sendReply(senderJid, { text: list });
+        }
+
+        case "anotar-email":
+        case "rascunho-email":
+        case "rascunho": {
+          if (!fullArgs || !fullArgs.includes(":")) {
+            return await sendReply(senderJid, {
+              text:
+                `📝 *COMO ANOTAR UM RASCUNHO DE EMAIL*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `Formato:\n` +
+                `\`${prefix}anotar-email <destinatário> <assunto> : <mensagem>\`\n\n` +
+                `Exemplo:\n` +
+                `\`${prefix}anotar-email cliente@empresa.pt Orçamento Obra : Olá, envio em anexo a proposta revista com 5% de desconto.\`\n\n` +
+                `💡 _O rascunho fica guardado. Podes revê-lo com \`${prefix}rascunhos\` e expedir quando quiseres com \`${prefix}enviar-rascunho <id>\`!_`
+            });
+          }
+
+          const [headerPart, ...bodyParts] = fullArgs.split(":");
+          const bodyText = bodyParts.join(":").trim();
+          const headerTokens = headerPart.trim().split(" ");
+          const toAddress = headerTokens[0].includes("@") ? headerTokens[0].trim() : "";
+          const subject = (toAddress ? headerTokens.slice(1) : headerTokens).join(" ").trim() || "Rascunho de André Pinheiro";
+
+          const draft = emailService.saveDraft({
+            to: toAddress,
+            subject,
+            body: bodyText
+          });
+
+          return await sendReply(senderJid, {
+            text:
+              `📝 *RASCUNHO DE EMAIL ANOTADO COM SUCESSO!*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🆔 *ID:* \`#${draft.id}\`\n` +
+              `📬 *Para:* ${draft.to || "_(Sem destinatário definido)_"}\n` +
+              `📌 *Assunto:* ${draft.subject}\n` +
+              `📝 *Corpo:* "${draft.body.slice(0, 150)}${draft.body.length > 150 ? "..." : ""}"\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💡 _Para rever os teus rascunhos: \`${prefix}rascunhos\`_\n` +
+              `🚀 _Para enviar este email agora: \`${prefix}enviar-rascunho ${draft.id}\`_`
+          });
+        }
+
+        case "enviar-rascunho":
+        case "expedir-rascunho": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o número ou ID do rascunho a enviar.*\nExemplo: \`${prefix}enviar-rascunho 1\`\nUsa \`${prefix}rascunhos\` para ver os teus rascunhos guardados.`
+            });
+          }
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Email não configurado.* Usa \`${prefix}config email <palavra-passe-app>\` para autorizar o envio via Gmail.`
+            });
+          }
+
+          await sendReply(senderJid, { text: `📤 _A enviar rascunho #${fullArgs}..._` });
+          try {
+            const result = await emailService.sendDraft(fullArgs);
+            return await sendReply(senderJid, {
+              text:
+                `✅ *RASCUNHO ENVIADO COM SUCESSO!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📬 *Para:* ${result.to}\n` +
+                `📌 *Assunto:* ${result.subject}\n` +
+                `⏱️ *Data:* ${new Date().toLocaleTimeString("pt-PT")}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `🗑️ _O rascunho foi removido da lista após expedição com sucesso._`
+            });
+          } catch (err) {
+            return await sendReply(senderJid, {
+              text: `❌ *Erro ao enviar rascunho:* ${err.message}\nVerifica se o rascunho tem um email de destinatário válido.`
+            });
+          }
+        }
+
+        case "apagar-rascunho":
+        case "eliminar-rascunho": {
+          if (!fullArgs) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o número ou ID do rascunho a apagar.*\nExemplo: \`${prefix}apagar-rascunho 1\``
+            });
+          }
+          const deleted = emailService.deleteDraft(fullArgs);
+          if (deleted) {
+            return await sendReply(senderJid, {
+              text: `🗑️ *Rascunho #${fullArgs} eliminado com sucesso!*`
+            });
+          } else {
+            return await sendReply(senderJid, {
+              text: `❌ Rascunho não encontrado com o ID ou índice \`${fullArgs}\`. Usa \`${prefix}rascunhos\` para rever a lista.`
+            });
           }
         }
 
@@ -1104,6 +1322,130 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
             return;
           }
           break;
+        }
+
+        case "SHOW_MANAGER": {
+          const now = new Date();
+          const todayStr = now.toISOString().split("T")[0];
+          const tomorrow = new Date(now);
+          tomorrow.setDate(now.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+          const todayEvents = calendarService.getEventsForDay(todayStr);
+          const tomorrowEvents = calendarService.getEventsForDay(tomorrowStr);
+          const tasks = personalAssistant.getTasks();
+          const drafts = emailService.getDrafts();
+          const isEmailConfigured = emailService.isConfigured();
+
+          const dashboard = formatter.formatPersonalManagerDashboard({
+            todayEvents,
+            tomorrowEvents,
+            tasks,
+            drafts,
+            isEmailConfigured,
+            emailUser: config.emailUser
+          });
+
+          return await sendReply(senderJid, { text: dashboard });
+        }
+
+        case "TODAY_EVENTS": {
+          const report = calendarService.formatDayAgenda(null, "Hoje");
+          return await sendReply(senderJid, { text: report });
+        }
+
+        case "TOMORROW_EVENTS": {
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(now.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split("T")[0];
+          const report = calendarService.formatDayAgenda(tomorrowStr, "Amanhã");
+          return await sendReply(senderJid, { text: report });
+        }
+
+        case "SEARCH_EVENTS": {
+          const term = aiResult.param || "";
+          const results = calendarService.searchEvents(term);
+          if (!results || results.length === 0) {
+            return await sendReply(senderJid, {
+              text: `🔍 *Nenhum evento encontrado no calendário para "${term}".*\nUsa \`/agenda\` para rever a semana toda.`
+            });
+          }
+          let report = `🔍 *EVENTOS ENCONTRADOS PARA "${term}" (${results.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          results.forEach((e, idx) => {
+            report += `${idx + 1}. 📅 *${e.date}* às 🕒 *${e.time}* - *${e.title}* (#${e.id})\n`;
+          });
+          return await sendReply(senderJid, { text: report });
+        }
+
+        case "LIST_DRAFTS": {
+          const list = emailService.formatDraftsList();
+          return await sendReply(senderJid, { text: list });
+        }
+
+        case "DRAFT_EMAIL": {
+          const raw = aiResult.param || "";
+          let toAddress = "";
+          let subject = "Rascunho de André Pinheiro";
+          let bodyText = raw;
+
+          if (raw.includes(":")) {
+            const [headerPart, ...bodyParts] = raw.split(":");
+            bodyText = bodyParts.join(":").trim();
+            const headerTokens = headerPart.trim().split(" ");
+            toAddress = headerTokens[0].includes("@") ? headerTokens[0].trim() : "";
+            subject = (toAddress ? headerTokens.slice(1) : headerTokens).join(" ").trim() || "Rascunho de André Pinheiro";
+          }
+
+          const draft = emailService.saveDraft({
+            to: toAddress,
+            subject,
+            body: bodyText
+          });
+
+          return await sendReply(senderJid, {
+            text:
+              `📝 *RASCUNHO DE EMAIL ANOTADO COM SUCESSO!*\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🆔 *ID:* \`#${draft.id}\`\n` +
+              `📬 *Para:* ${draft.to || "_(Sem destinatário definido)_"}\n` +
+              `📌 *Assunto:* ${draft.subject}\n` +
+              `📝 *Corpo:* "${draft.body.slice(0, 150)}${draft.body.length > 150 ? "..." : ""}"\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `💡 _Para rever os teus rascunhos: \`${prefix}rascunhos\`_\n` +
+              `🚀 _Para enviar este email agora: \`${prefix}enviar-rascunho ${draft.id}\`_`
+          });
+        }
+
+        case "SEND_DRAFT": {
+          const id = aiResult.param || "";
+          if (!id) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Indica o ID do rascunho a enviar.*\nUsa \`/rascunhos\` para ver a lista.`
+            });
+          }
+          if (!emailService.isConfigured()) {
+            return await sendReply(senderJid, {
+              text: `⚠️ *Email não configurado.* Usa \`/config email <palavra-passe-app>\` para autorizar o envio.`
+            });
+          }
+          await sendReply(senderJid, { text: `📤 _A enviar rascunho #${id}..._` });
+          try {
+            const result = await emailService.sendDraft(id);
+            return await sendReply(senderJid, {
+              text:
+                `✅ *RASCUNHO ENVIADO COM SUCESSO!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📬 *Para:* ${result.to}\n` +
+                `📌 *Assunto:* ${result.subject}\n` +
+                `⏱️ *Data:* ${new Date().toLocaleTimeString("pt-PT")}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━`
+            });
+          } catch (err) {
+            return await sendReply(senderJid, {
+              text: `❌ *Erro ao enviar rascunho:* ${err.message}`
+            });
+          }
         }
 
         case "ADD_TASK": {

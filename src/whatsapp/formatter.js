@@ -6,8 +6,23 @@ export function formatHelp(prefix = "/") {
 ━━━━━━━━━━━━━━━━━━━━━━━━
 👋 Olá, André! Estou 100% conectado na nuvem e sincronizado com o teu Surface Pro.
 
+👔 *GESTOR PESSOAL (CALENDÁRIO & EMAIL):*
+• \`${prefix}gestor\` - Painel executivo diário (agenda de hoje, emails, rascunhos e tarefas)
+• \`${prefix}hoje\` - Compromissos e reuniões de hoje
+• \`${prefix}amanha\` - Agenda detalhada de amanhã
+• \`${prefix}anotar-evento <quando> <o que>\` - Marca evento com deteção de conflitos e Google Calendar
+• \`${prefix}rever-agenda\` ou \`${prefix}agenda\` - Ver próximos 7 dias
+• \`${prefix}procurar-evento <termo>\` - Pesquisa eventos pelo nome ou local
+• \`${prefix}emails\` ou \`${prefix}rever-emails\` - Resumo executivo com IA dos últimos emails
+• \`${prefix}ler-email <id>\` - Análise profunda de email e sugestão de resposta
+• \`${prefix}rascunhos\` - Lista de rascunhos de email anotados
+• \`${prefix}anotar-email <para> <assunto> : <msg>\` - Anota rascunho para rever e enviar
+• \`${prefix}enviar-rascunho <id>\` - Envia o rascunho anotado imediatamente
+• \`${prefix}apagar-rascunho <id>\` - Elimina rascunho
+• \`${prefix}enviar-email <para> <assunto> : <corpo>\` - Envia email diretamente pelo WhatsApp
+
 🛠️ *PROJETOS ANDROID & DEV:*
-• \`${prefix}projetos\` - Lista os 8 projetos sincronizados do Surface
+• \`${prefix}projetos\` - Lista os 22 projetos sincronizados do Surface
 • \`${prefix}diagnostico <proj>\` - Saúde e diagnóstico de ficheiros Gradle/Manifest
 • \`${prefix}corrigir <proj>\` - Auto-cura de erros e dependências
 • \`${prefix}build <proj>\` - Compila APK Debug e envia no WhatsApp
@@ -29,13 +44,6 @@ export function formatHelp(prefix = "/") {
 • \`${prefix}nota <texto>\` - Bloco de notas para medições, ideias e dados de obra
 • \`${prefix}notas\` - Consulta as tuas últimas notas guardadas
 
-📧 *GESTÃO INTELIGENTE DE EMAILS (GMAIL):*
-• \`${prefix}emails\` ou \`${prefix}resumo-emails\` - Resumo executivo com IA dos últimos emails
-• \`${prefix}email <termo>\` - Filtra e resume emails (ex: \`${prefix}email obra\` ou \`${prefix}email faturas\`)
-• \`${prefix}ler-email <id>\` - Análise profunda e rascunho de resposta sugerido
-• \`${prefix}enviar-email <para> <assunto> : <corpo>\` - Envia email diretamente pelo WhatsApp
-• \`${prefix}config email <pass>\` - Configura a palavra-passe de app Gmail
-
 💻 *CONTROLO SURFACE PRO & NUVEM:*
 • \`${prefix}status\` ou \`${prefix}pc\` - CPU, RAM, Bateria do Surface, Disco, Uptime
 • \`${prefix}print\` - Captura de ecrã em direto do portátil
@@ -52,8 +60,8 @@ export function formatHelp(prefix = "/") {
 
 ⚙️ *DEFINIÇÕES & IA:*
 • \`${prefix}config\` - Estado do sistema e chave Gemini
-• \`${prefix}config key <chave>\` - Configura ou atualiza a chave Gemini
-• \`${prefix}flashscore\` - Resultados e confirmação em direto de jogos oficiais
+• \`${prefix}config email <pass>\` - Configura a palavra-passe de app Gmail
+• \`${prefix}confirmar\` - Confirmação do ecossistema AgentX
 ━━━━━━━━━━━━━━━━━━━━━━━━
 💡 _Podes falar normalmente por voz ou texto em português sem usar barras!_
 `;
@@ -129,9 +137,96 @@ export function formatTasks(tasks) {
   return text;
 }
 
+export function formatPersonalManagerDashboard({
+  todayEvents = [],
+  tomorrowEvents = [],
+  tasks = [],
+  drafts = [],
+  isEmailConfigured = false,
+  emailUser = ""
+}) {
+  const now = new Date();
+  const dateFormatted = now.toLocaleDateString("pt-PT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+
+  let text =
+    `👔 *GESTOR PESSOAL EXECUTIVO - ANDRÉ PINHEIRO*\n` +
+    `🗓️ _${dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1)}_\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  // 1. Calendário de Hoje
+  text += `📅 *HOJE (${todayEvents.length} compromisso${todayEvents.length === 1 ? "" : "s"}):*\n`;
+  if (todayEvents.length === 0) {
+    text += `   • 🏖️ _Nenhum compromisso agendado para hoje. Dia livre!_\n`;
+  } else {
+    todayEvents.forEach((e, i) => {
+      const loc = e.location ? ` (${e.location})` : "";
+      text += `   ${i + 1}. 🕒 *${e.time}* - ${e.title}${loc}\n`;
+    });
+  }
+
+  // 2. Calendário de Amanhã
+  text += `\n📅 *AMANHÃ (${tomorrowEvents.length} compromisso${tomorrowEvents.length === 1 ? "" : "s"}):*\n`;
+  if (tomorrowEvents.length === 0) {
+    text += `   • 🏖️ _Sem compromissos marcados para amanhã._\n`;
+  } else {
+    tomorrowEvents.forEach((e, i) => {
+      const loc = e.location ? ` (${e.location})` : "";
+      text += `   ${i + 1}. 🕒 *${e.time}* - ${e.title}${loc}\n`;
+    });
+  }
+
+  // 3. Email & Rascunhos
+  text += `\n📧 *EMAIL & RASCUNHOS (${emailUser || "Gmail"}):*\n`;
+  text += `   • Conexão: ${isEmailConfigured ? "✅ *Ativo e Sincronizado*" : "⚠️ *Pendente de Palavra-passe de App*"}\n`;
+  if (drafts.length === 0) {
+    text += `   • 📝 Rascunhos guardados: _Nenhum rascunho pendente._\n`;
+  } else {
+    text += `   • 📝 *${drafts.length} Rascunho(s) Anotado(s) para Rever:*\n`;
+    drafts.slice(0, 3).forEach((d, idx) => {
+      text += `     ${idx + 1}. *[#${d.id}]* Para: _${d.to || "Sem destinatário"}_ - "${d.subject}"\n`;
+    });
+    if (drafts.length > 3) {
+      text += `     _(+${drafts.length - 3} outros rascunhos)_\n`;
+    }
+  }
+
+  // 4. Tarefas Prioritárias
+  const pendingTasks = tasks.filter((t) => !t.completed);
+  text += `\n📋 *TAREFAS PENDENTES (${pendingTasks.length}):*\n`;
+  if (pendingTasks.length === 0) {
+    text += `   • ✅ _Todas as tarefas concluídas!_\n`;
+  } else {
+    pendingTasks.slice(0, 3).forEach((t) => {
+      const shortId = t.id ? t.id.slice(-4) : "";
+      text += `   • ⏳ \`#${shortId}\` ${t.title}\n`;
+    });
+    if (pendingTasks.length > 3) {
+      text += `   • _(+${pendingTasks.length - 3} tarefas adicionais)_\n`;
+    }
+  }
+
+  // 5. Ações Rápidas
+  text +=
+    `\n━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚡ *COMANDOS DO GESTOR PESSOAL:*\n` +
+    `• \`/hoje\` ou \`/amanha\` - Rever compromissos\n` +
+    `• \`/anotar-evento <quando> <o que>\` - Novo evento\n` +
+    `• \`/emails\` ou \`/rever-emails\` - Resumo da caixa\n` +
+    `• \`/rascunhos\` - Rever rascunhos de email\n` +
+    `• \`/anotar-email <para> <assunto> : <msg>\` - Guardar rascunho\n` +
+    `• \`/enviar-rascunho <id>\` - Expedir rascunho`;
+
+  return text;
+}
+
 export default {
   formatHelp,
   formatProjects,
   formatStatus,
-  formatTasks
+  formatTasks,
+  formatPersonalManagerDashboard
 };

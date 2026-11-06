@@ -196,6 +196,81 @@ export function getUpcomingEvents(days = 14) {
 }
 
 /**
+ * Obter eventos de um dia específico (YYYY-MM-DD)
+ */
+export function getEventsForDay(dateStr) {
+  const events = getAllEvents();
+  return events.filter((e) => e.date === dateStr);
+}
+
+/**
+ * Pesquisar eventos por palavra-chave (título, notas, local)
+ */
+export function searchEvents(query) {
+  if (!query) return getUpcomingEvents(14);
+  const q = query.toLowerCase().trim();
+  const events = getAllEvents();
+  return events.filter(
+    (e) =>
+      (e.title && e.title.toLowerCase().includes(q)) ||
+      (e.notes && e.notes.toLowerCase().includes(q)) ||
+      (e.location && e.location.toLowerCase().includes(q))
+  );
+}
+
+/**
+ * Verificar se existe conflito de horário no mesmo dia
+ */
+export function checkConflicts(date, time, durationMinutes = 60) {
+  const dayEvents = getEventsForDay(date);
+  const [h, m] = time.split(":").map((v) => parseInt(v, 10));
+  const newStart = h * 60 + (m || 0);
+  const newEnd = newStart + durationMinutes;
+
+  const conflicts = [];
+  for (const ev of dayEvents) {
+    const [eh, em] = ev.time.split(":").map((v) => parseInt(v, 10));
+    const evStart = eh * 60 + (em || 0);
+    const evEnd = evStart + (ev.durationMinutes || 60);
+
+    // Sobreposição de intervalos: max(start1, start2) < min(end1, end2)
+    if (Math.max(newStart, evStart) < Math.min(newEnd, evEnd)) {
+      conflicts.push(ev);
+    }
+  }
+  return conflicts;
+}
+
+/**
+ * Formatar agenda detalhada de um dia (Hoje, Amanhã ou data específica)
+ */
+export function formatDayAgenda(targetDateStr = null, label = null) {
+  const now = new Date();
+  const dateStr = targetDateStr || now.toISOString().split("T")[0];
+  const events = getEventsForDay(dateStr);
+  const dayLabel = label || (dateStr === now.toISOString().split("T")[0] ? "HOJE" : dateStr);
+
+  if (!events || events.length === 0) {
+    return (
+      `📅 *AGENDA DE ${dayLabel.toUpperCase()} (${dateStr}):*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Sem eventos agendados para este dia.\n\n` +
+      `💡 _Para anotar um evento:_\n` +
+      `\`agenda ${dayLabel.toLowerCase()} às 15h Reunião de Obra\``
+    );
+  }
+
+  let text = `📅 *AGENDA DE ${dayLabel.toUpperCase()} (${dateStr}) - ${events.length} EVENTO(S):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  events.forEach((e, idx) => {
+    const loc = e.location ? `\n   📍 _Local:_ ${e.location}` : "";
+    const notes = e.notes ? `\n   📝 _Notas:_ ${e.notes}` : "";
+    text += `${idx + 1}. 🕒 *${e.time}* - *${e.title}*${loc}${notes}\n`;
+  });
+  text += `━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Para rever a semana completa:_ \`/agenda\`\n💡 _Para cancelar:_ \`/cancelar-evento <id>\``;
+  return text;
+}
+
+/**
  * Formatar lista de eventos para o WhatsApp
  */
 export function formatAgenda(events = null) {
@@ -285,6 +360,10 @@ export function startCalendarScheduler() {
 
 export default {
   getAllEvents,
+  getEventsForDay,
+  searchEvents,
+  checkConflicts,
+  formatDayAgenda,
   addEvent,
   deleteEvent,
   parseQuickEventPhrase,

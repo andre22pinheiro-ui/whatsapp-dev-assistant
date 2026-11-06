@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import config, { saveSettings } from "../config.js";
 import logger from "../utils/logger.js";
+import { readData, writeData } from "../utils/storage.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 class EmailService {
@@ -363,6 +364,88 @@ Formate em Markdown para WhatsApp em português de Portugal.
         `━━━━━━━━━━━━━━━━━━━━━━━━`
       );
     }
+  }
+  // -------------------------------------------------------------
+  // GESTÃO DE RASCUNHOS DE EMAIL (Anotar e Rever antes de enviar)
+  // -------------------------------------------------------------
+  getDrafts() {
+    return readData("email_drafts", []);
+  }
+
+  saveDraft({ to, subject, body }) {
+    const drafts = this.getDrafts();
+    const id = "draft_" + (drafts.length + 1) + "_" + Date.now().toString().slice(-4);
+    const draft = {
+      id,
+      to: (to || "").trim(),
+      subject: (subject || "Sem Assunto").trim(),
+      body: (body || "").trim(),
+      createdAt: new Date().toISOString(),
+      createdAtFormatted: new Date().toLocaleString("pt-PT")
+    };
+    drafts.push(draft);
+    writeData("email_drafts", drafts);
+    logger.info(`📝 Rascunho de email anotado: [${id}] Para: ${draft.to}`);
+    return draft;
+  }
+
+  getDraft(idOrIndex) {
+    const drafts = this.getDrafts();
+    if (!drafts.length) return null;
+    const clean = idOrIndex.toString().trim().toLowerCase();
+    const idx = parseInt(clean, 10);
+    if (!isNaN(idx) && idx >= 1 && idx <= drafts.length) {
+      return drafts[idx - 1];
+    }
+    return drafts.find((d) => d.id.toLowerCase() === clean || d.id.toLowerCase().includes(clean)) || null;
+  }
+
+  deleteDraft(idOrIndex) {
+    const drafts = this.getDrafts();
+    const target = this.getDraft(idOrIndex);
+    if (!target) return false;
+    const remaining = drafts.filter((d) => d.id !== target.id);
+    writeData("email_drafts", remaining);
+    return true;
+  }
+
+  async sendDraft(idOrIndex) {
+    const draft = this.getDraft(idOrIndex);
+    if (!draft) {
+      throw new Error(`Rascunho não encontrado com a referência "${idOrIndex}".`);
+    }
+    if (!draft.to || !draft.to.includes("@")) {
+      throw new Error(`O rascunho [${draft.id}] não tem um endereço de destinatário válido (${draft.to}).`);
+    }
+    const result = await this.sendEmail({
+      to: draft.to,
+      subject: draft.subject,
+      text: draft.body
+    });
+    this.deleteDraft(draft.id);
+    return { ...result, draft };
+  }
+
+  formatDraftsList() {
+    const drafts = this.getDrafts();
+    if (!drafts || drafts.length === 0) {
+      return (
+        "📝 *RASCUNHOS DE EMAIL*\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+        "Nenhum rascunho de email guardado no momento.\n\n" +
+        "💡 _Para anotar um rascunho para rever mais tarde:_\n" +
+        "`/anotar-email cliente@empresa.pt Orçamento Obra : Olá, envio os valores acordados.`"
+      );
+    }
+    let text = `📝 *OS TEUS RASCUNHOS DE EMAIL ANOTADOS (${drafts.length}):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    drafts.forEach((d, i) => {
+      text += `${i + 1}. *[${d.id}]*\n   📬 *Para:* ${d.to || "Sem destinatário"}\n   📌 *Assunto:* ${d.subject}\n   📝 *Mensagem:* "${d.body.slice(0, 120)}${d.body.length > 120 ? "..." : ""}"\n   🕒 _${d.createdAtFormatted}_\n\n`;
+    });
+    text +=
+      "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+      "💡 _Para enviar agora:_ `/enviar-rascunho 1` ou `/enviar-rascunho <id>`\n" +
+      "💡 _Para apagar:_ `/apagar-rascunho 1`";
+    return text;
   }
 }
 

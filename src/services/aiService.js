@@ -143,7 +143,62 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "ADD_TASK", param: taskText };
   }
 
+  // Deteção rápida de Gestor Pessoal e Painel Diário
+  if (
+    lower === "gestor" ||
+    lower === "gestor pessoal" ||
+    lower === "painel pessoal" ||
+    lower === "meu dia" ||
+    lower === "resumo do dia" ||
+    lower === "painel" ||
+    lower === "o meu painel"
+  ) {
+    return { type: "action", action: "SHOW_MANAGER" };
+  }
+
   // Deteção rápida de Eventos e Calendário
+  if (
+    lower === "hoje" ||
+    lower === "o que tenho hoje" ||
+    lower === "o que tenho hoje?" ||
+    lower === "agenda de hoje" ||
+    lower === "rever hoje" ||
+    lower === "eventos de hoje" ||
+    lower === "compromissos de hoje" ||
+    lower === "meu dia hoje"
+  ) {
+    return { type: "action", action: "TODAY_EVENTS" };
+  }
+
+  if (
+    lower === "amanha" ||
+    lower === "amanhã" ||
+    lower === "o que tenho amanha" ||
+    lower === "o que tenho amanhã" ||
+    lower === "o que tenho amanha?" ||
+    lower === "o que tenho amanhã?" ||
+    lower === "agenda de amanha" ||
+    lower === "agenda de amanhã" ||
+    lower === "rever amanha" ||
+    lower === "rever amanhã" ||
+    lower === "eventos de amanha" ||
+    lower === "eventos de amanhã"
+  ) {
+    return { type: "action", action: "TOMORROW_EVENTS" };
+  }
+
+  if (
+    lower.startsWith("procura evento ") ||
+    lower.startsWith("procurar evento ") ||
+    lower.startsWith("pesquisa evento ") ||
+    lower.startsWith("pesquisar evento ") ||
+    lower.startsWith("pesquisa na agenda ") ||
+    lower.startsWith("procura na agenda ")
+  ) {
+    const term = userMessage.replace(/^(procura evento|procurar evento|pesquisa evento|pesquisar evento|pesquisa na agenda|procura na agenda)\s+/i, "").trim();
+    return { type: "action", action: "SEARCH_EVENTS", param: term };
+  }
+
   if (
     lower.startsWith("agenda ") ||
     lower.startsWith("agendar ") ||
@@ -151,9 +206,17 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     lower.startsWith("marcar ") ||
     lower.startsWith("evento ") ||
     lower.startsWith("adiciona evento ") ||
-    lower.startsWith("adicionar evento ")
+    lower.startsWith("adicionar evento ") ||
+    lower.startsWith("anota evento ") ||
+    lower.startsWith("anotar evento ") ||
+    lower.startsWith("anota no calendario ") ||
+    lower.startsWith("anota no calendário ") ||
+    lower.startsWith("anotar no calendario ") ||
+    lower.startsWith("anotar no calendário ") ||
+    lower.startsWith("marca no calendario ") ||
+    lower.startsWith("marca no calendário ")
   ) {
-    const eventPhrase = userMessage.replace(/^(agenda|agendar|marca|marcar|evento|adiciona evento|adicionar evento)\s+/i, "").trim();
+    const eventPhrase = userMessage.replace(/^(agenda|agendar|marca|marcar|evento|adiciona evento|adicionar evento|anota evento|anotar evento|anota no calendario|anota no calendário|anotar no calendario|anotar no calendário|marca no calendario|marca no calendário)\s+/i, "").trim();
     return { type: "action", action: "ADD_EVENT", param: eventPhrase };
   }
 
@@ -163,13 +226,46 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     lower === "calendário" ||
     lower === "eventos" ||
     lower === "ver agenda" ||
+    lower === "rever agenda" ||
+    lower === "rever calendario" ||
+    lower === "rever calendário" ||
     lower === "ver eventos" ||
-    lower === "o que tenho hoje" ||
-    lower === "o que tenho hoje?" ||
     lower === "o que tenho marcado" ||
     lower === "o que tenho marcado?"
   ) {
     return { type: "action", action: "LIST_EVENTS" };
+  }
+
+  // Deteção rápida de Rascunhos de Email
+  if (
+    lower === "rascunhos" ||
+    lower === "ver rascunhos" ||
+    lower === "rever rascunhos" ||
+    lower === "os meus rascunhos" ||
+    lower === "rascunhos de email" ||
+    lower === "emails por enviar"
+  ) {
+    return { type: "action", action: "LIST_DRAFTS" };
+  }
+
+  if (
+    lower.startsWith("anota email ") ||
+    lower.startsWith("anotar email ") ||
+    lower.startsWith("rascunho de email ") ||
+    lower.startsWith("rascunho email ") ||
+    lower.startsWith("guardar rascunho ")
+  ) {
+    const draftText = userMessage.replace(/^(anota email|anotar email|rascunho de email|rascunho email|guardar rascunho)\s+/i, "").trim();
+    return { type: "action", action: "DRAFT_EMAIL", param: draftText };
+  }
+
+  if (
+    lower.startsWith("enviar rascunho ") ||
+    lower.startsWith("expedir rascunho ") ||
+    lower.startsWith("manda o rascunho ")
+  ) {
+    const id = userMessage.replace(/^(enviar rascunho|expedir rascunho|manda o rascunho)\s+/i, "").trim();
+    return { type: "action", action: "SEND_DRAFT", param: id };
   }
 
   // Deteção rápida de Notas
@@ -204,7 +300,12 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     lower === "quais sao os emails de hoje" ||
     lower === "quais são os emails de hoje" ||
     lower === "emails recentes" ||
-    lower === "caixa de entrada"
+    lower === "caixa de entrada" ||
+    lower === "inbox" ||
+    lower === "rever emails" ||
+    lower === "ler emails" ||
+    lower === "ver os emails" ||
+    lower === "rever a caixa de correio"
   ) {
     return { type: "action", action: "LIST_EMAILS" };
   }

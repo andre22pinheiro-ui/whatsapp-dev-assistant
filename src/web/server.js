@@ -107,7 +107,7 @@ export function createWebServer() {
 
   // Middleware de proteção para todas as rotas da API
   app.use("/api", (req, res, next) => {
-    if (req.path.startsWith("/auth/") || req.path === "/mobile-message") return next();
+    if (req.path.startsWith("/auth/") || req.path === "/mobile-message" || req.path === "/downloads") return next();
 
     // Permitir rotas de sincronização PC <-> Nuvem protegidas por Token Secreto
     if (req.path.startsWith("/sync/")) {

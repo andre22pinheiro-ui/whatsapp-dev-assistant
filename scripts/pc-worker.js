@@ -334,6 +334,14 @@ async function main() {
   setInterval(syncCycle, POLL_INTERVAL_MS);
 }
 
+process.on("uncaughtException", (err) => {
+  logger.error("Exceção não tratada capturada no PC Worker:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error("Promessa rejeitada não tratada no PC Worker:", reason);
+});
+
 main().catch((err) => {
   logger.error("Erro fatal no Agente Local do PC:", err);
 });

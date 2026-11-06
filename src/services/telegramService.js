@@ -36,19 +36,36 @@ class TelegramService {
     return `https://api.telegram.org/bot${config.telegramBotToken}/${method}`;
   }
 
-  // Enviar mensagem de texto formatada
-  async sendMessage(chatId, text, { parseMode = "Markdown", replyMarkup = null } = {}) {
-    if (!this.isConfigured()) return null;
-
-    const targetChatId = chatId || config.telegramChatId;
-    if (!targetChatId) {
-      logger.warn("Telegram: Nenhum Chat ID configurado para envio de mensagem.");
-      return null;
+  // Dividir textos longos em pedaços seguros (limite Telegram: 4096 caracteres)
+  splitText(text, maxLength = 3900) {
+    if (!text || text.length <= maxLength) return [text || ""];
+    const chunks = [];
+    let remaining = String(text);
+    while (remaining.length > maxLength) {
+      let splitIdx = remaining.lastIndexOf("\n\n", maxLength);
+      if (splitIdx === -1 || splitIdx < maxLength / 2) {
+        splitIdx = remaining.lastIndexOf("\n", maxLength);
+      }
+      if (splitIdx === -1 || splitIdx < maxLength / 2) {
+        splitIdx = remaining.lastIndexOf(" ", maxLength);
+      }
+      if (splitIdx === -1) {
+        splitIdx = maxLength;
+      }
+      chunks.push(remaining.substring(0, splitIdx).trim());
+      remaining = remaining.substring(splitIdx).trim();
     }
+    if (remaining.length > 0) {
+      chunks.push(remaining);
+    }
+    return chunks;
+  }
 
+  // Enviar mensagem única via HTTP
+  async sendSingleMessage(chatId, text, { parseMode = "Markdown", replyMarkup = null } = {}) {
     try {
       const payload = {
-        chat_id: targetChatId,
+        chat_id: chatId,
         text,
         disable_web_page_preview: false
       };
@@ -60,31 +77,62 @@ class TelegramService {
         payload.reply_markup = replyMarkup;
       }
 
-      const res = await fetch(this.getApiUrl("sendMessage"), {
+      let res = await fetch(this.getApiUrl("sendMessage"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      let data = await res.json();
       if (!data.ok) {
-        // Se falhar com Markdown por causa de caracteres especiais, tentar sem parse_mode
-        if (parseMode && data.description?.includes("can't parse entities")) {
+        // Se falhar com erro de Markdown ou parsing de tags, tentar novamente em texto simples
+        if (parseMode && (data.description?.includes("can't parse") || data.description?.includes("entity"))) {
           delete payload.parse_mode;
-          const retryRes = await fetch(this.getApiUrl("sendMessage"), {
+          res = await fetch(this.getApiUrl("sendMessage"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          return await retryRes.json();
+          data = await res.json();
         }
-        logger.warn(`Erro no envio de mensagem Telegram: ${data.description}`);
+        if (!data.ok) {
+          logger.warn(`Erro no envio de mensagem Telegram: ${data.description}`);
+        }
       }
       return data;
     } catch (err) {
       logger.error("Erro na chamada à API do Telegram:", err);
       return null;
     }
+  }
+
+  // Enviar mensagem de texto formatada (com suporte automático a textos longos)
+  async sendMessage(chatId, text, { parseMode = "Markdown", replyMarkup = null } = {}) {
+    if (!this.isConfigured() || !text) return null;
+
+    const targetChatId = chatId || config.telegramChatId;
+    if (!targetChatId) {
+      logger.warn("Telegram: Nenhum Chat ID configurado para envio de mensagem.");
+      return null;
+    }
+
+    const chunks = this.splitText(text, 3900);
+    let lastResult = null;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const isLast = i === chunks.length - 1;
+      lastResult = await this.sendSingleMessage(targetChatId, chunk, {
+        parseMode,
+        replyMarkup: isLast ? replyMarkup : null
+      });
+      // Pequena pausa entre mensagens para garantir ordem e evitar rate limits
+      if (chunks.length > 1 && !isLast) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
+    return lastResult;
   }
 
   // Notificar o André no Telegram (usado pelo Email-to-App e alertas)
@@ -187,13 +235,37 @@ class TelegramService {
     logger.info("⏹️ Escuta do Telegram Bot terminada.");
   }
 
+  // Obter caminho de ficheiro no Telegram
+  async getTelegramFilePath(fileId) {
+    try {
+      const res = await fetch(this.getApiUrl(`getFile?file_id=${fileId}`));
+      const data = await res.json();
+      if (data.ok && data.result?.file_path) {
+        return data.result.file_path;
+      }
+    } catch (e) {
+      logger.warn(`Erro ao obter getFile no Telegram: ${e.message}`);
+    }
+    return null;
+  }
+
+  // Descarregar buffer de ficheiro do Telegram
+  async downloadTelegramFile(filePath) {
+    const url = `https://api.telegram.org/file/bot${config.telegramBotToken}/${filePath}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Falha no download Telegram: ${res.statusText}`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   // Tratar mensagem recebida do utilizador
   async handleUpdate(update) {
     const msg = update.message;
-    if (!msg || !msg.text) return;
+    if (!msg) return;
 
-    const chatId = msg.chat.id;
-    const text = msg.text.trim();
+    const chatId = msg.chat?.id;
+    if (!chatId) return;
+
+    let text = (msg.text || msg.caption || "").trim();
     const fromUser = msg.from?.username || msg.from?.first_name || "Utilizador";
 
     // SEGURANÇA E PRIVACIDADE ESTRITA: Apenas o André (Chat ID 950415577) tem autorização
@@ -218,6 +290,47 @@ class TelegramService {
       saveSettings({ telegramChatId: String(chatId) });
       logger.info(`📌 Telegram Chat ID configurado automaticamente: ${chatId} (${fromUser})`);
     }
+
+    // 0.1 SUPORTE A FOTOS / IMAGENS (Visão Multimodal Gemini)
+    if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+      try {
+        const largestPhoto = msg.photo[msg.photo.length - 1];
+        logger.info(`🖼️ [TELEGRAM FOTO] A processar imagem enviada por ${fromUser}...`);
+        await this.sendMessage(chatId, "🔍 _A analisar imagem com IA visual (Gemini)..._");
+
+        const filePath = await this.getTelegramFilePath(largestPhoto.file_id);
+        if (filePath) {
+          const imgBuffer = await this.downloadTelegramFile(filePath);
+          const prompt = text || "Analisa esta imagem em detalhe em português de Portugal. Se for uma refeição, alimento ou prato, identifica os ingredientes, estima o peso, calorias (Kcal), macronutrientes (proteína, hidratos, gordura) e avaliação nutricional. Se for código, erro ou documento, resume e explica.";
+          const analysis = await aiService.analyzeImage(imgBuffer, "image/jpeg", prompt);
+          return await this.sendMessage(chatId, analysis);
+        }
+      } catch (imgErr) {
+        logger.error("Erro ao analisar imagem no Telegram:", imgErr);
+        return await this.sendMessage(chatId, `⚠️ Erro na análise visual: ${imgErr.message}`);
+      }
+    }
+
+    // 0.2 SUPORTE A MENSAGENS DE VOZ / ÁUDIO (Groq Whisper / Gemini)
+    if (msg.voice || msg.audio) {
+      try {
+        const fileId = (msg.voice || msg.audio).file_id;
+        const filePath = await this.getTelegramFilePath(fileId);
+        if (filePath) {
+          const audioBuffer = await this.downloadTelegramFile(filePath);
+          const transcription = await aiService.transcribeAudio(audioBuffer, msg.voice ? "audio/ogg" : "audio/mpeg");
+          if (transcription) {
+            text = transcription.trim();
+            logger.info(`🎙️ [TELEGRAM ÁUDIO TRANSCRITO] ${fromUser}: "${text}"`);
+            await this.sendMessage(chatId, `🎙️ _"${text}"_`);
+          }
+        }
+      } catch (audioErr) {
+        logger.warn(`Erro na transcrição de áudio: ${audioErr.message}`);
+      }
+    }
+
+    if (!text) return;
 
     logger.info(`💬 [TELEGRAM PRIVADO] Mensagem de ${fromUser} (Chat: ${chatId}): "${text}"`);
 
@@ -329,6 +442,9 @@ class TelegramService {
 
     // 1.0.3 NUTRIÇÃO DE ALTA PERFORMANCE & ROTINA FÍSICA
     const isNutritionQuery =
+      lower.includes("nutri") ||
+      lower.includes("kcal") ||
+      lower.includes("caloria") ||
       cleanCmd === "nutricao" ||
       cleanCmd === "nutrição" ||
       cleanCmd === "dieta" ||

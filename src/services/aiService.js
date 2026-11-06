@@ -429,9 +429,8 @@ Para todas as outras conversas, dúvidas, análises de trânsito, legislação, 
   }
 
   const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
     "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
     "gemini-flash-latest"
   ];
 
@@ -504,9 +503,8 @@ export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
   const base64Data = audioBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
     "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
     "gemini-flash-latest"
   ];
 
@@ -541,9 +539,8 @@ export async function analyzeImage(imageBuffer, mimeType = "image/jpeg", userPro
   const base64Data = imageBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
     "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
     "gemini-flash-latest"
   ];
 

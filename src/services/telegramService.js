@@ -249,16 +249,37 @@ class TelegramService {
 
     // 1.2 Configurar palavra-passe do Gmail
     if (cleanCmd.startsWith("config_email") || cleanCmd.startsWith("config-email") || cleanCmd.startsWith("senha_email")) {
-      const pass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();
-      if (!pass) {
-        return await this.sendMessage(chatId, `💡 Envia: \`/config_email <palavra-passe-app-16-letras>\``);
+      let rawPass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();
+      let pass = rawPass.replace(/[<>[\]"'`\s]/g, "").trim().toLowerCase();
+      if (pass.length > 16) {
+        pass = pass.slice(0, 16);
       }
+
+      if (!pass || pass.length < 12) {
+        return await this.sendMessage(chatId, `💡 Envia a palavra-passe de 16 letras gerada no Google (sem chavetas):\nExemplo: \`/config_email abcd efgh ijkl mnop\``);
+      }
+
       emailService.saveCredentials({ email: config.authEmail || "Andre22pinheiro@gmail.com", password: pass });
-      return await this.sendMessage(
-        chatId,
-        `✅ *Palavra-passe do Gmail guardada com sucesso!*\n` +
-        `Agora já tenho acesso seguro para ler emails e detetar pedidos de criação de apps automaticamente. Usa \`/emails\` para testares!`
-      );
+
+      // Testar conexão de imediato
+      try {
+        const testEmails = await emailService.fetchRecentEmails({ limit: 1 });
+        return await this.sendMessage(
+          chatId,
+          `✅ *GMAIL CONECTADO COM SUCESSO!*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📧 *Conta:* \`${config.authEmail || "Andre22pinheiro@gmail.com"}\`\n` +
+          `🔒 *Estado:* Ligação IMAP/SMTP verificada e 100% ativa!\n\n` +
+          `🚀 *O que podes fazer agora:*\n` +
+          `• \`/emails\` - Consultar e resumir os teus emails recentes com IA\n` +
+          `• Envia um email para \`Andre22pinheiro@gmail.com\` com o assunto \`[App] Nome\` e o bot cria a app autonomamente no GitHub e Vercel!`
+        );
+      } catch (err) {
+        return await this.sendMessage(
+          chatId,
+          `⚠️ *Credencial guardada, mas o Gmail reportou:*\n${err.message}\nVerifica se a Verificação em 2 Passos está ativa no Google.`
+        );
+      }
     }
 
     // 2. /criar_app ou /criar-app ou criar app

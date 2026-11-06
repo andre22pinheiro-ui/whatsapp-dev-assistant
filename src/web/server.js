@@ -150,6 +150,44 @@ export function createWebServer() {
     res.json(cloudTunnel.getStatus());
   });
 
+  // 1.1.1 ENDPOINTS DE DOWNLOADS E PROJETOS EM VERCEL
+  app.get("/api/downloads", (req, res) => {
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      vercelProjects: [
+        { name: "Smooth-Bus-Routes (RotaBus)", url: "https://smooth-bus-routes.vercel.app", apkUrl: "https://smooth-bus-routes.vercel.app/rotabus.apk" },
+        { name: "MatchPro (Streaming & Tática)", url: "https://matchpro-alpha.vercel.app", apkUrl: "https://matchpro-alpha.vercel.app/MatchPro.apk" },
+        { name: "Pladur-Pro (Engenharia 3D & Orçamentos)", url: "https://pladur-pro.vercel.app", apkUrl: "https://pladur-pro.vercel.app/PladurPro.apk" },
+        { name: "WhatsApp Dev Assistant (Painel Nuvem & Bot)", url: "http://136.64.71.248:3333", apkUrl: "https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk" },
+        { name: "AppFrota (Gestão de Frotas)", url: "https://appfrota-ten.vercel.app" },
+        { name: "Casa de Bonecas 3D", url: "https://casadebonecas-3d.vercel.app" },
+        { name: "Last War Tactics", url: "https://last-war-tactics.vercel.app" },
+        { name: "Pesquisa Imobiliário", url: "https://pesquisa-imobiliario.vercel.app" }
+      ],
+      apks: [
+        { name: "MatchPro.apk", sizeMb: 4.62, url: "https://matchpro-alpha.vercel.app/MatchPro.apk" },
+        { name: "PladurPro.apk", sizeMb: 36.6, url: "https://pladur-pro.vercel.app/PladurPro.apk" },
+        { name: "rotabus.apk", sizeMb: 79.26, url: "https://smooth-bus-routes.vercel.app/rotabus.apk" },
+        { name: "WhatsAppDevAssistant.apk", sizeMb: 12.97, url: "https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk" }
+      ]
+    });
+  });
+
+  app.get("/downloads/:filename", (req, res) => {
+    const filename = req.params.filename;
+    const publicPath = path.join(__dirname, "public", filename);
+    const desktopPath = path.join(config.projectsDir, filename);
+    const target = fs.existsSync(publicPath) ? publicPath : (fs.existsSync(desktopPath) ? desktopPath : null);
+
+    if (target) {
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      return res.sendFile(target);
+    }
+    return res.status(404).json({ error: `APK ${filename} não encontrado.` });
+  });
+
   // 1.2 ENDPOINT PARA APLICAÇÃO ANDROID NO TELEMÓVEL (BRIDGE NATIVO NOTIFICATIONLISTENER)
   app.post("/api/mobile-message", async (req, res) => {
     try {

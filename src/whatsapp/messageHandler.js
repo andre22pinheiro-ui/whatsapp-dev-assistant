@@ -193,7 +193,8 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
       const directKeywords = [
         "projetos", "projectos", "status", "diagnostico", "ajuda", "help", "menu", "print", "nuvem", "cloud",
         "agenda", "calendario", "eventos", "evento", "confirmar", "agentes", "agentx", "frota", "rotabus",
-        "matchpro", "pladur", "gestor", "hoje", "amanha", "rascunhos", "rascunho", "emails", "email", "inbox"
+        "matchpro", "pladur", "gestor", "hoje", "amanha", "rascunhos", "rascunho", "emails", "email", "inbox",
+        "links", "vercel", "apks", "downloads", "download"
       ];
       const firstWord = normalized.split(/\s+/)[0];
       if (directKeywords.includes(firstWord)) {
@@ -285,6 +286,74 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
               `📱 *APK Android:* \`MatchPro.apk\` sincronizado.\n` +
               `━━━━━━━━━━━━━━━━━━━━━━━━`
           });
+        }
+
+        case "links":
+        case "vercel":
+        case "sites": {
+          const linksText =
+            `🌐 *LINKS OFICIAIS DOS PROJETOS EM VERCEL (PRODUÇÃO)*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🚌 *1. Smooth-Bus-Routes (RotaBus)*\n` +
+            `   🔗 https://smooth-bus-routes.vercel.app\n` +
+            `   • Navegação Pesada 3.6m/18t + 4 Agentes + Reg. CE 561/2006\n` +
+            `   • APK: https://smooth-bus-routes.vercel.app/rotabus.apk\n\n` +
+            `⚽ *2. MatchPro (Streaming & Tática)*\n` +
+            `   🔗 https://matchpro-alpha.vercel.app\n` +
+            `   • Dark Tactical HUD, Tracking e Failover HLS/IPTV\n` +
+            `   • APK: https://matchpro-alpha.vercel.app/MatchPro.apk\n\n` +
+            `🏗️ *3. Pladur-Pro (Engenharia 3D & Orçamentação)*\n` +
+            `   🔗 https://pladur-pro.vercel.app\n` +
+            `   • Normas EN 520/14195, Cortador Eco < 7% quebras, Orçamento ML\n` +
+            `   • APK: https://pladur-pro.vercel.app/PladurPro.apk\n\n` +
+            `🚛 *4. AppFrota (Gestão de Frotas)*\n` +
+            `   🔗 https://appfrota-ten.vercel.app\n` +
+            `   • Gestão de veículos, motoristas e manutenção\n\n` +
+            `🧸 *5. Casa de Bonecas 3D*\n` +
+            `   🔗 https://casadebonecas-3d.vercel.app\n` +
+            `   • Modelos e navegação 3D interativa\n\n` +
+            `⚔️ *6. Last War Tactics*\n` +
+            `   🔗 https://last-war-tactics.vercel.app\n` +
+            `   • Táticas e planeamento de combate\n\n` +
+            `🏠 *7. Pesquisa Imobiliário*\n` +
+            `   🔗 https://pesquisa-imobiliario.vercel.app\n` +
+            `   • Agregação e motor de análise imobiliária\n\n` +
+            `🤖 *8. WhatsApp Dev Assistant (Nuvem 24/7)*\n` +
+            `   🔗 http://136.64.71.248:3333\n` +
+            `   • APK: https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📱 _Toca em qualquer link para abrir ou testar diretamente no smartphone!_`;
+
+          return await sendReply(senderJid, { text: linksText });
+        }
+
+        case "apks":
+        case "downloads":
+        case "download": {
+          const apksText =
+            `📦 *APKS PRONTOS PARA TESTAR NOS SMARTPHONES*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Podes descarregar e instalar no Android através dos links seguros com CDN Vercel:\n\n` +
+            `1. ⚽ *MatchPro (4.62 MB)*\n` +
+            `   📥 https://matchpro-alpha.vercel.app/MatchPro.apk\n` +
+            `   _Análise tática, streams desportivos e Tactical HUD._\n\n` +
+            `2. 🏗️ *Pladur-Pro (36.6 MB)*\n` +
+            `   📥 https://pladur-pro.vercel.app/PladurPro.apk\n` +
+            `   _Cálculo estrutural de tetos/paredes, 3D e orçamento ML._\n\n` +
+            `3. 🚌 *RotaBus (79.2 MB)*\n` +
+            `   📥 https://smooth-bus-routes.vercel.app/rotabus.apk\n` +
+            `   _Navegação pesada, túneis/pontes e paragens CE 561/2006._\n\n` +
+            `4. 🤖 *WhatsApp Dev Assistant (12.97 MB)*\n` +
+            `   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
+            `   _Serviço de notificação, IA e automação WhatsApp para Android._\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `☁️ *Servidor Nuvem (VM 136.64.71.248:3333):*\n` +
+            `   📥 http://136.64.71.248:3333/api/downloads\n` +
+            `   📥 http://192.168.1.115:8081 (Download Direto no PC)\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
+
+          return await sendReply(senderJid, { text: apksText });
         }
 
         case "status":
@@ -454,9 +523,55 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
         }
 
         case "apk": {
+          const apkMap = {
+            rotabus: { name: "rotabus.apk", url: "https://smooth-bus-routes.vercel.app/rotabus.apk", sizeMb: "79.2" },
+            rota: { name: "rotabus.apk", url: "https://smooth-bus-routes.vercel.app/rotabus.apk", sizeMb: "79.2" },
+            bus: { name: "rotabus.apk", url: "https://smooth-bus-routes.vercel.app/rotabus.apk", sizeMb: "79.2" },
+            matchpro: { name: "MatchPro.apk", url: "https://matchpro-alpha.vercel.app/MatchPro.apk", sizeMb: "4.62" },
+            match: { name: "MatchPro.apk", url: "https://matchpro-alpha.vercel.app/MatchPro.apk", sizeMb: "4.62" },
+            pladur: { name: "PladurPro.apk", url: "https://pladur-pro.vercel.app/PladurPro.apk", sizeMb: "36.6" },
+            "pladur-pro": { name: "PladurPro.apk", url: "https://pladur-pro.vercel.app/PladurPro.apk", sizeMb: "36.6" },
+            whatsapp: { name: "WhatsAppDevAssistant.apk", url: "https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk", sizeMb: "12.97" },
+            assistant: { name: "WhatsAppDevAssistant.apk", url: "https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk", sizeMb: "12.97" }
+          };
+
+          const targetKey = fullArgs ? fullArgs.toLowerCase().trim() : "";
+          if (targetKey && apkMap[targetKey]) {
+            const info = apkMap[targetKey];
+            await sendReply(senderJid, {
+              text:
+                `📦 *DOWNLOAD DO APK: ${info.name} (${info.sizeMb} MB)*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `🚀 *Download Direto no Telemóvel (Vercel CDN):*\n${info.url}\n\n` +
+                `💡 _Abre no navegador do smartphone para descarregar a alta velocidade e instalar._`
+            });
+            const localFile = path.join(config.rootDir, "src", "web", "public", info.name);
+            const desktopFile = path.join(config.projectsDir, info.name);
+            const fileToSend = fs.existsSync(localFile) ? localFile : (fs.existsSync(desktopFile) ? desktopFile : null);
+            if (fileToSend && fs.statSync(fileToSend).size < 50 * 1024 * 1024) {
+              try {
+                await sendReply(senderJid, {
+                  document: fs.readFileSync(fileToSend),
+                  mimetype: "application/vnd.android.package-archive",
+                  fileName: info.name,
+                  caption: `📱 APK: *${info.name}*`
+                });
+              } catch (e) {}
+            }
+            return;
+          }
+
           if (!fullArgs) {
             return await sendReply(senderJid, {
-              text: `⚠️ *Indique o projeto.*\nExemplo: \`${prefix}apk pladur-pro\``
+              text:
+                `📦 *CENTRO DE DOWNLOADS DE APKs (CDN VERCEL)*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `1. ⚽ *MatchPro (4.62 MB):*\n   \`${prefix}apk matchpro\`\n   📥 https://matchpro-alpha.vercel.app/MatchPro.apk\n\n` +
+                `2. 🏗️ *Pladur-Pro (36.6 MB):*\n   \`${prefix}apk pladur\`\n   📥 https://pladur-pro.vercel.app/PladurPro.apk\n\n` +
+                `3. 🚌 *RotaBus (79.2 MB):*\n   \`${prefix}apk rotabus\`\n   📥 https://smooth-bus-routes.vercel.app/rotabus.apk\n\n` +
+                `4. 🤖 *WhatsApp Dev Assistant (12.97 MB):*\n   \`${prefix}apk whatsapp\`\n   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `💡 _Para ver todos os links de projetos web: \`${prefix}links\`_`
             });
           }
 
@@ -465,7 +580,7 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
 
           if (apks.length === 0) {
             return await sendReply(senderJid, {
-              text: `❌ Nenhum APK encontrado no projeto \`${fullArgs}\`.\nUsa \`${prefix}build ${fullArgs}\` para compilar primeiro.`
+              text: `❌ Nenhum APK encontrado no projeto \`${fullArgs}\`.\nUsa \`${prefix}build ${fullArgs}\` para compilar primeiro ou \`${prefix}apks\` para a lista de APKs disponíveis.`
             });
           }
 
@@ -1446,6 +1561,64 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
               text: `❌ *Erro ao enviar rascunho:* ${err.message}`
             });
           }
+        }
+
+        case "LIST_LINKS": {
+          const linksText =
+            `🌐 *LINKS OFICIAIS DOS PROJETOS EM VERCEL (PRODUÇÃO)*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🚌 *1. Smooth-Bus-Routes (RotaBus)*\n` +
+            `   🔗 https://smooth-bus-routes.vercel.app\n` +
+            `   • Navegação Pesada 3.6m/18t + 4 Agentes + Reg. CE 561/2006\n` +
+            `   • APK: https://smooth-bus-routes.vercel.app/rotabus.apk\n\n` +
+            `⚽ *2. MatchPro (Streaming & Tática)*\n` +
+            `   🔗 https://matchpro-alpha.vercel.app\n` +
+            `   • Dark Tactical HUD, Tracking e Failover HLS/IPTV\n` +
+            `   • APK: https://matchpro-alpha.vercel.app/MatchPro.apk\n\n` +
+            `🏗️ *3. Pladur-Pro (Engenharia 3D & Orçamentação)*\n` +
+            `   🔗 https://pladur-pro.vercel.app\n` +
+            `   • Normas EN 520/14195, Cortador Eco < 7% quebras, Orçamento ML\n` +
+            `   • APK: https://pladur-pro.vercel.app/PladurPro.apk\n\n` +
+            `🚛 *4. AppFrota (Gestão de Frotas)*\n` +
+            `   🔗 https://appfrota-ten.vercel.app\n\n` +
+            `🧸 *5. Casa de Bonecas 3D*\n` +
+            `   🔗 https://casadebonecas-3d.vercel.app\n\n` +
+            `⚔️ *6. Last War Tactics*\n` +
+            `   🔗 https://last-war-tactics.vercel.app\n\n` +
+            `🏠 *7. Pesquisa Imobiliário*\n` +
+            `   🔗 https://pesquisa-imobiliario.vercel.app\n\n` +
+            `🤖 *8. WhatsApp Dev Assistant (Nuvem 24/7)*\n` +
+            `   🔗 http://136.64.71.248:3333\n` +
+            `   • APK: https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📱 _Toca em qualquer link para abrir ou testar diretamente no smartphone!_`;
+          return await sendReply(senderJid, { text: linksText });
+        }
+
+        case "LIST_APKS": {
+          const apksText =
+            `📦 *APKS PRONTOS PARA TESTAR NOS SMARTPHONES*\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Podes descarregar e instalar no Android através dos links seguros com CDN Vercel:\n\n` +
+            `1. ⚽ *MatchPro (4.62 MB)*\n` +
+            `   📥 https://matchpro-alpha.vercel.app/MatchPro.apk\n` +
+            `   _Análise tática, streams desportivos e Tactical HUD._\n\n` +
+            `2. 🏗️ *Pladur-Pro (36.6 MB)*\n` +
+            `   📥 https://pladur-pro.vercel.app/PladurPro.apk\n` +
+            `   _Cálculo estrutural de tetos/paredes, 3D e orçamento ML._\n\n` +
+            `3. 🚌 *RotaBus (79.2 MB)*\n` +
+            `   📥 https://smooth-bus-routes.vercel.app/rotabus.apk\n` +
+            `   _Navegação pesada, túneis/pontes e paragens CE 561/2006._\n\n` +
+            `4. 🤖 *WhatsApp Dev Assistant (12.97 MB)*\n` +
+            `   📥 https://matchpro-alpha.vercel.app/WhatsAppDevAssistant.apk\n` +
+            `   _Serviço de notificação, IA e automação WhatsApp para Android._\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `☁️ *Servidor Nuvem (VM 136.64.71.248:3333):*\n` +
+            `   📥 http://136.64.71.248:3333/api/downloads\n` +
+            `   📥 http://192.168.1.115:8081 (Download Direto no PC)\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💡 _Dica: Abre o link no Chrome do telemóvel para descarregar a alta velocidade e tocar em "Instalar"!_`;
+          return await sendReply(senderJid, { text: apksText });
         }
 
         case "ADD_TASK": {

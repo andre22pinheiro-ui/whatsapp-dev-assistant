@@ -25,9 +25,11 @@ export function formatHelp(prefix = "/") {
 • \`${prefix}projetos\` - Lista os 22 projetos sincronizados do Surface
 • \`${prefix}diagnostico <proj>\` - Saúde e diagnóstico de ficheiros Gradle/Manifest
 • \`${prefix}corrigir <proj>\` - Auto-cura de erros e dependências
+• \`${prefix}links\` ou \`${prefix}vercel\` - Todos os 8 projetos em produção na Vercel
+• \`${prefix}apks\` ou \`${prefix}downloads\` - Links diretos de alta velocidade para testar APKs
+• \`${prefix}apk <proj>\` - Envia ou descarrega APK (ex: \`${prefix}apk matchpro\`, \`${prefix}apk rotabus\`)
 • \`${prefix}build <proj>\` - Compila APK Debug e envia no WhatsApp
 • \`${prefix}release <proj>\` - Compila APK de Produção (Release)
-• \`${prefix}apk <proj>\` - Envia o último APK pronto para instalar
 • \`${prefix}studio <proj>\` - Abre o projeto no Android Studio do PC
 
 📅 *CALENDÁRIO & GOOGLE CALENDAR:*

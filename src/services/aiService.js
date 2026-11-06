@@ -323,6 +323,34 @@ export async function processNaturalLanguage(userMessage, context = {}) {
   }
 
   if (
+    lower === "links" ||
+    lower === "links dos projetos" ||
+    lower === "links em vercel" ||
+    lower === "projetos em vercel" ||
+    lower === "vercel" ||
+    lower === "ver links" ||
+    lower === "sites" ||
+    lower === "sites em vercel"
+  ) {
+    return { type: "action", action: "LIST_LINKS" };
+  }
+
+  if (
+    lower === "apks" ||
+    lower === "downloads" ||
+    lower === "download" ||
+    lower === "descarregar apks" ||
+    lower === "apks para testar" ||
+    lower === "apks para telemovel" ||
+    lower === "apks para smartphone" ||
+    lower === "instalar nos smartphones" ||
+    lower === "quais sao os apks" ||
+    lower === "quais são os apks"
+  ) {
+    return { type: "action", action: "LIST_APKS" };
+  }
+
+  if (
     lower === "ajuda" ||
     lower === "menu" ||
     lower === "o que sabes fazer" ||

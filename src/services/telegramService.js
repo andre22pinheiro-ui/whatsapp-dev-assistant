@@ -10,6 +10,7 @@ import aiService from "./aiService.js";
 import portugalLawService from "./portugalLawService.js";
 import masterDomainService from "./masterDomainService.js";
 import videoScriptService from "./videoScriptService.js";
+import formadorTccService from "./formadorTccService.js";
 
 class TelegramService {
   constructor() {
@@ -109,6 +110,7 @@ class TelegramService {
     try {
       const commands = [
         { command: "start", description: "Menu principal e ajuda" },
+        { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
         { command: "roteiro", description: "Gerador de Roteiro Shorts/Reels (Retenção, B-roll e Legenda)" },
         { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
         { command: "briefing", description: "Resumo executivo diário completo (Agenda, Emails, Tarefas, Compras)" },
@@ -405,6 +407,30 @@ class TelegramService {
         .trim() || "Como Criar Apps no Telemóvel com Antigravity AI";
       const script = videoScriptService.generateShortScript(rawTheme);
       return await this.sendMessage(chatId, script);
+    }
+
+    // 1.0.7 FORMADOR TCC & PESADOS (CCP HOLDER SPECIALIST - TEMP 0.0)
+    const isTccTrainerQuery =
+      cleanCmd === "tcc" ||
+      cleanCmd === "formador" ||
+      cleanCmd === "formadortcc" ||
+      cleanCmd.startsWith("tcc ") ||
+      cleanCmd.startsWith("formador ") ||
+      lower.startsWith("como formador") ||
+      lower.includes("formação tcc") ||
+      lower.includes("formacao tcc") ||
+      lower.includes("curso tcc") ||
+      lower.includes("estudo de caso") ||
+      lower.includes("smart tacho 2") ||
+      lower.includes("tacografo v2") ||
+      lower.includes("tacógrafo v2") ||
+      lower.includes("reg. ue 2019/2144") ||
+      lower.includes("reg. ue 165/2014");
+
+    if (isTccTrainerQuery) {
+      const queryParam = text.replace(/^\/?(tcc|formador|formadortcc)\s*/i, "").trim();
+      const pedagogicalAnswer = formadorTccService.processPedagogicalQuery(queryParam);
+      return await this.sendMessage(chatId, pedagogicalAnswer);
     }
 
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {

@@ -940,7 +940,7 @@ class TelegramService {
       return await this.sendMessage(chatId, `📒 *Nota guardada na Nuvem:* "${n.title}"\n${n.content}`);
     }
 
-    // 9. Processamento de Linguagem Natural com IA Gemini (Free Tier)
+    // 9. Processamento de Linguagem Natural & Corrente com IA Groq / Gemini (Sem Comandos Rígidos)
     try {
       const aiRes = await aiService.processNaturalLanguage(text, { user: fromUser });
       if (aiRes) {
@@ -949,7 +949,7 @@ class TelegramService {
         }
         if (aiRes.action === "STATUS") {
           const health = await systemService.getSystemHealth();
-          return await this.sendMessage(chatId, `💻 *ESTADO DO PC:*\nCPU: ${health.cpuLoad} | RAM: ${health.ram} | Disco: ${health.disk}`);
+          return await this.sendMessage(chatId, `💻 *Estado do teu computador:*\nCPU: ${health.cpuLoad} | RAM: ${health.ram} | Disco: ${health.disk}`);
         }
         if (aiRes.action === "TODAY_EVENTS") {
           return await this.sendMessage(chatId, calendarService.formatDayAgenda());
@@ -958,21 +958,27 @@ class TelegramService {
           return await this.sendMessage(chatId, personalAssistant.formatShoppingList());
         }
       }
-    } catch (e) {}
-
-    // 10. Resposta Inteligente de Contexto (Elimina Loops e Respostas Genéricas)
-    let smartReply = "";
-    if (lower.includes("olá") || lower.includes("ola") || lower.includes("oi") || lower.includes("boas")) {
-      smartReply = `👋 Olá, André! Estou 100% ativo e pronto a ajudar.\nPodes pedir-me o teu \`/briefing\`, consultar \`/compras\`, rever \`/emails\` ou \`/criar_app\`.`;
-    } else if (lower.includes("obrigad") || lower.includes("top") || lower.includes("excelente") || lower.includes("fixe")) {
-      smartReply = `🙏 Sempre às ordens, André! O assistente está a monitorizar 24/7.`;
-    } else if (lower.includes("faz") || lower.includes("podes") || lower.includes("consegues")) {
-      smartReply = `💪 Sim, consigo! Gerencio a tua lista de compras, agenda do Google Calendar, resumo de emails do Gmail e programo apps completas para o GitHub e Vercel.\nExperimenta dizer: *"adiciona leite às compras"* ou *"/criar_app <nome> : <o que deve fazer>"*.`;
-    } else {
-      smartReply = `🤖 *Comando ou Pedido Reconhecido!*\n━━━━━━━━━━━━━━━━━━━━━━━━\n"${text}"\n\n💡 _Dica:_ Usa \`/briefing\` para o teu resumo executivo, \`/compras\` para a lista no supermercado, ou \`/menu\` para todas as opções.`;
+    } catch (e) {
+      logger.warn(`Erro no processamento de linguagem natural: ${e.message}`);
     }
 
-    return await this.sendMessage(chatId, smartReply);
+    // 10. Diálogo Fluido em Linguagem Corrente com Groq LPU (Sem Robótica)
+    if (groqService.isConfigured()) {
+      try {
+        const chatRes = await groqService.callChat({
+          userPrompt: text,
+          temperature: 0.0
+        });
+        if (chatRes && chatRes.content) {
+          return await this.sendMessage(chatId, chatRes.content);
+        }
+      } catch (err) {
+        logger.warn(`Erro no diálogo Groq: ${err.message}`);
+      }
+    }
+
+    // Fallback conversacional simples em linguagem natural
+    return await this.sendMessage(chatId, `Olá, André! Compreendi o que disseste. Diz-me o que precisas que faça ou pesquise agora.`);
   }
 }
 

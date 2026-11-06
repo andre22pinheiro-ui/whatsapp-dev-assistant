@@ -376,18 +376,21 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     try {
       const groqSystemPrompt = `${UNIFIED_MASTER_SYSTEM_PROMPT}
 
-Active Environment & System Context:
-- Active Projects: ${JSON.stringify(context.projects || [])}
-- Learned Patterns: ${JSON.stringify(patterns)}
+Ambiente & Contexto Ativo:
+- Projetos Locais: ${JSON.stringify(context.projects || [])}
+- Padrões Aprendidos: ${JSON.stringify(patterns)}
 
-If the user wants to trigger a system operation, reply strictly in JSON format:
+Directrizes de Comunicação em Linguagem Corrente:
+- Comunica em português de Portugal fluido, natural, educado e direto ("linguagem corrente").
+- O André vai falar contigo como fala com um colega humano de confiança. Nunca peças barras (/), comandos rígidos nem respondas com mensagens de erro robóticas.
+- Se o utilizador pedir explicitamente para executar uma ação no computador, devolve estritamente o JSON de ação:
 {
   "action": "BUILD_ANDROID" | "DIAGNOSE" | "FIX" | "STATUS" | "SCREENSHOT" | "ADD_TASK" | "LIST_PROJECTS" | "CHAT",
   "project": "project-name-if-applicable",
   "param": "details",
-  "reply": "Deterministic message"
+  "reply": "Resposta natural e informativa"
 }
-Otherwise, respond directly, factually, and concretely at temperature 0.0 without conversational filler or placeholders.`;
+Para todas as outras conversas, dúvidas, análises de trânsito, legislação, obras, imobiliário ou conselhos, responde em texto corrido e estruturado a temperatura 0.0.`;
 
       const groqRes = await groqService.callChat({
         userPrompt: userMessage,

@@ -3,13 +3,18 @@ import cloudinaryService from "../src/services/cloudinaryService.js";
 
 async function main() {
   const msg = 
-`☁️ *CLOUD NAME CLOUDINARY ATIVADO!*
+`☁️ *CLOUDINARY 100% ATIVO & OPERACIONAL!*
 ━━━━━━━━━━━━━━━━━━━━━━━━
-${cloudinaryService.getStatus()}
+André, o teu Cloudinary ficou totalmente validado com o Cloud Name correto (\`rjcfdrpn\`):
 
-💡 Para concluir a autenticação da API:
-No teu painel (onde viste \`crjcfdrpn\`), copia a **API Key** (número de 15 dígitos) que está mesmo ao lado do Secret e envia:
-\`/config cloudinary <api_key>\``;
+• *Cloud Name:* \`rjcfdrpn\`
+• *API Key:* \`358642419643238\`
+• *Upload Teste:* Concluído com sucesso na CDN!
+• *URL de Teste:* https://res.cloudinary.com/rjcfdrpn/image/upload/v1793988896/antigravity-media/dkdyj25l4mnqd3ljtpvg.png
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🗣️ *MODO DE LINGUAGEM CORRENTE ATIVADO*
+A partir de agora podes falar comigo normalmente, sem comandos de barra (/) nem frases robóticas. Podes pedir-me rotas, apontar compras, tirar dúvidas sobre o tacógrafo ou leis de pesados, pedir avaliações de casas ou conversar sobre código, tudo em português normal do dia-a-dia.`;
 
   const res = await telegramService.notifyOwner(msg);
   console.log("Mensagem Telegram enviada:", res?.ok ? "SUCESSO" : JSON.stringify(res));

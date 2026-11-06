@@ -195,3 +195,4 @@ class AmaranteMapService {
 
 export const amaranteMapService = new AmaranteMapService();
 export default amaranteMapService;
+

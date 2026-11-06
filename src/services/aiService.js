@@ -426,11 +426,10 @@ Otherwise, respond directly, factually, and concretely at temperature 0.0 withou
   }
 
   const CANDIDATE_MODELS = [
+    "gemini-3.5-flash-lite",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
-    "gemini-2.5-flash-lite"
+    "gemini-flash-latest"
   ];
 
   let lastError = null;
@@ -502,6 +501,7 @@ export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
   const base64Data = audioBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
+    "gemini-3.5-flash-lite",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
     "gemini-flash-latest"
@@ -538,6 +538,7 @@ export async function analyzeImage(imageBuffer, mimeType = "image/jpeg", userPro
   const base64Data = imageBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
+    "gemini-3.5-flash-lite",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
     "gemini-flash-latest"

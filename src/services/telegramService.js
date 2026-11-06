@@ -9,6 +9,7 @@ import personalAssistant from "./personalAssistant.js";
 import aiService from "./aiService.js";
 import portugalLawService from "./portugalLawService.js";
 import masterDomainService from "./masterDomainService.js";
+import videoScriptService from "./videoScriptService.js";
 
 class TelegramService {
   constructor() {
@@ -108,6 +109,7 @@ class TelegramService {
     try {
       const commands = [
         { command: "start", description: "Menu principal e ajuda" },
+        { command: "roteiro", description: "Gerador de Roteiro Shorts/Reels (Retenção, B-roll e Legenda)" },
         { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
         { command: "briefing", description: "Resumo executivo diário completo (Agenda, Emails, Tarefas, Compras)" },
         { command: "criar_app", description: "Programar nova App na nuvem (GitHub + Vercel + APK)" },
@@ -377,6 +379,32 @@ class TelegramService {
     if (isFleetQuery) {
       const fleetSpecs = masterDomainService.getFleetTacographAnalysis();
       return await this.sendMessage(chatId, fleetSpecs);
+    }
+
+    // 1.0.6 ESPECIALISTA EM EDIÇÃO, ROTEIRO E DESIGN PARA SHORTS & REELS
+    const isScriptQuery =
+      cleanCmd === "roteiro" ||
+      cleanCmd === "shorts" ||
+      cleanCmd === "reels" ||
+      cleanCmd.startsWith("roteiro ") ||
+      cleanCmd.startsWith("shorts ") ||
+      cleanCmd.startsWith("reels ") ||
+      cleanCmd.startsWith("video ") ||
+      lower.startsWith("cria um roteiro") ||
+      lower.startsWith("faz um roteiro") ||
+      lower.startsWith("roteiro para") ||
+      lower.startsWith("roteiro de") ||
+      lower.startsWith("script para") ||
+      lower.startsWith("script de") ||
+      lower.includes("roteiro para reels") ||
+      lower.includes("roteiro para shorts");
+
+    if (isScriptQuery) {
+      const rawTheme = text
+        .replace(/^\/?(roteiro|shorts|reels|video|cria um roteiro|faz um roteiro|roteiro para|roteiro de|script para|script de)\s*/i, "")
+        .trim() || "Como Criar Apps no Telemóvel com Antigravity AI";
+      const script = videoScriptService.generateShortScript(rawTheme);
+      return await this.sendMessage(chatId, script);
     }
 
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {

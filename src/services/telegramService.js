@@ -229,32 +229,22 @@ class TelegramService {
       return await this.sendMessage(chatId, welcome);
     }
 
-    // 1.1 Perguntas sobre Gmail / Acesso ao Email
-    if (/gmail|email|correio/i.test(cleanCmd) && (cleanCmd.includes("acesso") || cleanCmd.includes("tens") || cleanCmd.includes("como") || cleanCmd.includes("ligar"))) {
-      const isConf = emailService.isConfigured();
-      if (isConf) {
-        return await this.sendMessage(
-          chatId,
-          `📧 *ACESSO AO GMAIL ATIVO!*\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `Conta associada: \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\`\n\n` +
-          `• \`/emails\` - Consultar e resumir emails recentes\n` +
-          `• \`/verificar_emails\` - Procurar pedidos de criação de apps enviados por email\n` +
-          `• Envia um email para \`Andre22pinheiro@gmail.com\` com o assunto \`[App] Nome\` e eu desenvolvo tudo!`
-        );
-      } else {
-        return await this.sendMessage(
-          chatId,
-          `📧 *CONFIGURAÇÃO DO GMAIL (100% FREE)*\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `Conta associada: \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\`\n\n` +
-          `Para eu aceder à tua caixa de correio em segurança:\n` +
-          `1. Na tua Conta Google: **Segurança** ➔ **Palavras-passe de aplicação**\n` +
-          `2. Cria uma para "Bot" (gera 16 letras, ex: \`abcd efgh ijkl mnop\`)\n` +
-          `3. Envia-me aqui: \`/config_email <as-16-letras>\`\n\n` +
-          `Assim que enviares, fico imediatamente com acesso para ler prompts por email e resumir a tua caixa!`
-        );
-      }
+    // 1.1 Perguntas sobre Gmail / Acesso / Configuração / Link
+    if (/gmail|email|correio/i.test(cleanCmd) && (cleanCmd.includes("acesso") || cleanCmd.includes("tens") || cleanCmd.includes("como") || cleanCmd.includes("ligar") || cleanCmd.includes("link") || cleanCmd.includes("config") || cleanCmd.includes("pass") || cleanCmd.includes("senha") || cleanCmd.includes("chave") || cleanCmd.includes("onde"))) {
+      return await this.sendMessage(
+        chatId,
+        `📧 *LINK OFICIAL PARA CONFIGURAR O GMAIL (100% FREE)*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Conta associada: \`${config.authEmail || 'Andre22pinheiro@gmail.com'}\`\n\n` +
+        `🔗 *Link direto do Google:*\n👉 https://myaccount.google.com/apppasswords\n\n` +
+        `*Passos simples (1 minuto):*\n` +
+        `1. Abre o link acima no teu telemóvel ou PC.\n` +
+        `2. Em *Nome da app*, escreve: \`Bot\`\n` +
+        `3. Clica em **Criar**\n` +
+        `4. Copia o código amarelo de 16 letras (ex: \`abcd efgh ijkl mnop\`)\n` +
+        `5. Envia-me aqui no chat:\n   \`/config_email <as-16-letras>\`\n\n` +
+        `Fico logo com acesso total para resumir emails e criar apps por email! 🚀`
+      );
     }
 
     // 1.2 Configurar palavra-passe do Gmail

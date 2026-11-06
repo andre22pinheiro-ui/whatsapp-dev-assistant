@@ -10,6 +10,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const execAsync = promisify(exec);
 
 export function getSystemGitHubToken() {
+  if (config.githubToken) return config.githubToken.trim();
   if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN.trim();
   try {
     const stdout = execSync("echo protocol=https`nhost=github.com | git credential fill", { encoding: "utf8" });
@@ -19,7 +20,7 @@ export function getSystemGitHubToken() {
   return "";
 }
 
-const GITHUB_OWNER = "andre22pinheiro-ui";
+const GITHUB_OWNER = config.githubOwner || "andre22pinheiro-ui";
 
 export class AppScaffoldService {
   constructor() {

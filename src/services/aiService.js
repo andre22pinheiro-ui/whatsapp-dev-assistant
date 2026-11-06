@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import config from "../config.js";
 import logger from "../utils/logger.js";
 import { readData, writeData } from "../utils/storage.js";
+import groqService, { UNIFIED_MASTER_SYSTEM_PROMPT } from "./groqService.js";
 
 let genAI = null;
 let currentApiKey = null;
@@ -370,14 +371,56 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "HELP" };
   }
 
-  // 3. PROCESSAMENTO COM IA GEMINI (Cascata adaptativa com suporte aos modelos mais recentes)
+  // 3. PROCESSAMENTO COM IA DETERMINÍSTICA GROQ (Temperature: 0.0 - LPU Ultra-Rápido)
+  if (groqService.isConfigured()) {
+    try {
+      const groqSystemPrompt = `${UNIFIED_MASTER_SYSTEM_PROMPT}
+
+Active Environment & System Context:
+- Active Projects: ${JSON.stringify(context.projects || [])}
+- Learned Patterns: ${JSON.stringify(patterns)}
+
+If the user wants to trigger a system operation, reply strictly in JSON format:
+{
+  "action": "BUILD_ANDROID" | "DIAGNOSE" | "FIX" | "STATUS" | "SCREENSHOT" | "ADD_TASK" | "LIST_PROJECTS" | "CHAT",
+  "project": "project-name-if-applicable",
+  "param": "details",
+  "reply": "Deterministic message"
+}
+Otherwise, respond directly, factually, and concretely at temperature 0.0 without conversational filler or placeholders.`;
+
+      const groqRes = await groqService.callChat({
+        userPrompt: userMessage,
+        systemPrompt: groqSystemPrompt,
+        temperature: 0.0
+      });
+
+      if (groqRes && groqRes.content) {
+        const text = groqRes.content.trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.action) {
+              return { type: "action", ...parsed };
+            }
+          } catch (e) {}
+        }
+        return { type: "chat", reply: text };
+      }
+    } catch (groqErr) {
+      logger.warn(`Erro no Groq Primary LLM: ${groqErr.message}. A recorrer ao Gemini...`);
+    }
+  }
+
+  // 4. FALLBACK SECUNDÁRIO COM IA GEMINI
   if (!client) {
     return {
       type: "no_key",
       reply:
         "💡 *Comando recebido.*\n" +
-        "Para conversar livremente com IA e absorver eventos complexos, podes configurar a tua chave gratuita Gemini no painel web ou com `/config key <chave>`.\n" +
-        "Podes obter a chave em: https://aistudio.google.com/app/apikey\n\n" +
+        "Para conversar livremente com IA determinística, a tua chave Groq ou Gemini pode ser configurada no painel web ou com `/config groq <chave>`.\n" +
+        "Podes obter a chave gratuita da Groq em: https://console.groq.com/keys\n\n" +
         "Comandos disponíveis: `/agenda`, `/evento <quando> <o que>`, `/status`, `/projetos`, `/diagnostico <proj>`, `/build <proj>`."
     };
   }
@@ -437,8 +480,21 @@ Se for conversa geral, responda com texto útil e natural.
   };
 }
 
-// Transcrição de áudios e mensagens de voz do WhatsApp
+// Transcrição de áudios e mensagens de voz do WhatsApp / Telegram
 export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
+  // 1. Tentar Groq Whisper (Zero custo, ultra-rápido ~300ms)
+  if (groqService.isConfigured()) {
+    try {
+      const groqTranscription = await groqService.transcribeAudio(audioBuffer);
+      if (groqTranscription) {
+        return groqTranscription;
+      }
+    } catch (err) {
+      logger.warn(`Groq Whisper falhou: ${err.message}. A recorrer ao Gemini...`);
+    }
+  }
+
+  // 2. Fallback para Gemini Multimodal
   const client = getAiClient();
   if (!client) return null;
 

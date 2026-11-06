@@ -309,3 +309,4 @@ export class PortugalLawService {
 
 export const portugalLawService = new PortugalLawService();
 export default portugalLawService;
+

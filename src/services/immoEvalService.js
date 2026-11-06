@@ -1,4 +1,5 @@
 import logger from "../utils/logger.js";
+import amaranteMapService from "./amaranteMapService.js";
 
 /**
  * IMMOEVAL-BOT: ESPECIALISTA DETERMINÍSTICO EM AVALIAÇÃO IMOBILIÁRIA E BANCÁRIA
@@ -240,3 +241,4 @@ export class ImmoEvalService {
 
 export const immoEvalService = new ImmoEvalService();
 export default immoEvalService;
+

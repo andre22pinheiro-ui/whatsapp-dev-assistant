@@ -78,7 +78,11 @@ export const config = {
   smtpHost: process.env.SMTP_HOST || settings.smtpHost || "smtp.gmail.com",
   smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || "465", 10),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || settings.telegramBotToken || "",
-  telegramChatId: process.env.TELEGRAM_CHAT_ID || settings.telegramChatId || ""
+  telegramChatId: process.env.TELEGRAM_CHAT_ID || settings.telegramChatId || "",
+  groqApiKey: process.env.GROQ_API_KEY || settings.groqApiKey || "",
+  groqModel: process.env.GROQ_MODEL || settings.groqModel || "openai/gpt-oss-120b",
+  githubToken: process.env.GITHUB_TOKEN || settings.githubToken || "",
+  githubOwner: process.env.GITHUB_OWNER || settings.githubOwner || "andre22pinheiro-ui"
 };
 
 export default config;

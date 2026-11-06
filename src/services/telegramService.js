@@ -12,6 +12,9 @@ import masterDomainService from "./masterDomainService.js";
 import videoScriptService from "./videoScriptService.js";
 import formadorTccService from "./formadorTccService.js";
 import immoEvalService from "./immoEvalService.js";
+import apiLinkService from "./apiLinkService.js";
+import groqService from "./groqService.js";
+import amaranteMapService from "./amaranteMapService.js";
 
 class TelegramService {
   constructor() {
@@ -112,6 +115,7 @@ class TelegramService {
       const commands = [
         { command: "start", description: "Menu principal e ajuda" },
         { command: "immo", description: "Avaliação Imobiliária e Bancária CMVM/BdP (Amarante e Região)" },
+        { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
         { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
         { command: "roteiro", description: "Gerador de Roteiro Shorts/Reels (Retenção, B-roll e Legenda)" },
         { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
@@ -411,74 +415,27 @@ class TelegramService {
       return await this.sendMessage(chatId, script);
     }
 
-    // 1.0.7 FORMADOR TCC & PESADOS (CCP HOLDER SPECIALIST - TEMP 0.0)
-    const isTccTrainerQuery =
-      cleanCmd === "tcc" ||
-      cleanCmd === "formador" ||
-      cleanCmd === "formadortcc" ||
-      cleanCmd.startsWith("tcc ") ||
-      cleanCmd.startsWith("formador ") ||
-      lower.startsWith("como formador") ||
-      lower.includes("formação tcc") ||
-      lower.includes("formacao tcc") ||
-      lower.includes("curso tcc") ||
-      lower.includes("estudo de caso") ||
-      lower.includes("smart tacho 2") ||
-      lower.includes("tacografo v2") ||
-      lower.includes("tacógrafo v2") ||
-      lower.includes("reg. ue 2019/2144") ||
-      lower.includes("reg. ue 165/2014");
 
-    if (isTccTrainerQuery) {
-      const queryParam = text.replace(/^\/?(tcc|formador|formadortcc)\s*/i, "").trim();
-      const pedagogicalAnswer = formadorTccService.processPedagogicalQuery(queryParam);
-      return await this.sendMessage(chatId, pedagogicalAnswer);
-    }
 
-    // 1.0.8 IMMOEVAL-BOT: AVALIAÇÃO IMOBILIÁRIA E BANCÁRIA DETERMINÍSTICA (CMVM / BdP)
-    const isImmoQuery =
-      cleanCmd === "immo" ||
-      cleanCmd === "imovel" ||
-      cleanCmd === "imóvel" ||
-      cleanCmd === "avaliacao" ||
-      cleanCmd === "avaliação" ||
-      cleanCmd.startsWith("immo ") ||
-      cleanCmd.startsWith("imovel ") ||
-      cleanCmd.startsWith("imóvel ") ||
-      cleanCmd.startsWith("avalia ") ||
-      cleanCmd.startsWith("avaliar ") ||
-      lower.includes("idealista.pt") ||
-      lower.includes("imovirtual.com") ||
-      lower.includes("casaapoio") ||
-      lower.includes("remax.pt") ||
-      lower.includes("era.pt") ||
-      (lower.includes("avaliação bancária") || lower.includes("avaliacao bancaria")) ||
-      (lower.includes("quanto vale") && (lower.includes("casa") || lower.includes("apartamento") || lower.includes("moradia") || lower.includes("terreno")));
 
-    if (isImmoQuery) {
-      const report = immoEvalService.evaluatePropertyInput(text);
-      return await this.sendMessage(chatId, report);
-    }
 
-    if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {
+    if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda" || cleanCmd === "especialistas") {
       const welcome =
-        `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM PRIVADO)*\n` +
+        `🏛️ *UNIFIED MASTER AI ASSISTANT — ANDRÉ PINHEIRO*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `Olá, André! O teu assistente está 100% conectado, exclusivo e sincronizado.\n\n` +
-        `🚀 *DESENVOLVIMENTO AUTÓNOMO (PROMPT-TO-APP):*\n` +
-        `• \`/criar_app <nome> : <prompt>\` - Desenvolve app React+Vite+Capacitor, envia para o GitHub e publica na Vercel!\n` +
-        `• \`/verificar_emails\` - Lê a caixa de correio por pedidos de apps\n\n` +
-        `🌐 *LINKS & APKS OFICIAIS:*\n` +
-        `• \`/links\` ou \`/vercel\` - Todos os projetos em produção na Vercel\n` +
-        `• \`/apks\` - Links diretos de alta velocidade para testar APKs\n` +
-        `• \`/projetos\` - Lista os 23 projetos sincronizados do Surface\n\n` +
-        `👔 *GESTOR PESSOAL (EMAIL & AGENDA):*\n` +
-        `• \`/gestor\` - Resumo executivo diário\n` +
-        `• \`/hoje\` ou \`/agenda\` - Compromissos do dia\n` +
-        `• \`/emails\` - Resumo dos últimos emails recebidos\n` +
-        `• \`/status\` - Saúde do PC (CPU, RAM, Bateria)\n` +
+        `Operação determinística a *Temperatura 0.0*. Zero especulação.\n\n` +
+        `🎯 *MÓDULOS ACTIVOS & ESPECIALIDADES:*\n` +
+        `1. 🚌 *Gestão de Frotas & Tráfego:* \`/frotas\` | \`/tacografo\` | \`/gabarito\`\n` +
+        `2. 👨‍🏫 *Formador TCC & Legislação Pesados:* \`/tcc\` | \`/formador\`\n` +
+        `3. 🏠 *Avaliação Imobiliária ImmoEval:* \`/immo <link/dados>\`\n` +
+        `4. 🥗 *Nutrição & Ergonomia Executiva:* \`/nutricao\` | \`/briefing\`\n` +
+        `5. 💻 *Engenharia de Software Autónoma:* \`/criar_app <nome> : <o que faz>\`\n` +
+        `6. ⚖️ *Legislação DRE.pt & EUR-Lex:* \`/leis\` | \`/dre\` | \`/codigo_estrada\`\n\n` +
+        `🗺️ *CARTOGRAFIA ESPACIAL:* \`/mapa\` (OpenStreetMap Amarante)\n` +
+        `🔑 *PROTOCOLOS DE API (FREE-TIER):* \`/apis\` (Gemini, Groq, Supabase, ORS, etc.)\n` +
+        `📱 *LINKS & APKS:* \`/links\` | \`/apks\` | \`/projetos\` | \`/status\`\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `💡 _Podes também pedir diretamente em linguagem natural ou áudio!_`;
+        `💡 _Motor LLM Primário: Groq LPU (openai/gpt-oss-120b) a Temp 0.0._`;
 
       return await this.sendMessage(chatId, welcome);
     }
@@ -501,7 +458,41 @@ class TelegramService {
       );
     }
 
-    // 1.2 Configurar palavra-passe do Gmail
+    // 1.3 Configuração de Chaves (Groq, GitHub, Gemini, etc.)
+    if (cleanCmd.startsWith("config ") || cleanCmd.startsWith("set_key ") || cleanCmd.startsWith("chave ")) {
+      const parts = text.replace(/^\/?(config|set_key|chave)\s+/i, "").trim().split(/\s+/);
+      const target = (parts[0] || "").toLowerCase();
+      const val = parts.slice(1).join(" ").trim();
+
+      if (!target || !val) {
+        return await this.sendMessage(
+          chatId,
+          `💡 *Como configurar chaves de API:*\n` +
+          `• \`/config groq <chave_gsk...>\`\n` +
+          `• \`/config github <chave_ghp...>\`\n` +
+          `• \`/config gemini <chave_AIzaSy...>\`\n` +
+          `• \`/config_email <16_letras_google>\`\n\n` +
+          `Envia \`/apis\` para consultar o directório oficial de obtenção gratuita.`
+        );
+      }
+
+      if (target === "groq") {
+        config.groqApiKey = val;
+        saveSettings({ groqApiKey: val });
+        return await this.sendMessage(chatId, `✅ *Chave Groq guardada com sucesso!*\nMotor LPU ativo a temperatura 0.0.`);
+      } else if (target === "github") {
+        config.githubToken = val;
+        saveSettings({ githubToken: val });
+        return await this.sendMessage(chatId, `✅ *Token GitHub guardado com sucesso!*\nConta: \`${config.githubOwner || 'andre22pinheiro-ui'}\`.`);
+      } else if (target === "gemini") {
+        config.geminiApiKey = val;
+        saveSettings({ geminiApiKey: val });
+        return await this.sendMessage(chatId, `✅ *Chave Gemini guardada com sucesso!*`);
+      } else {
+        saveSettings({ [target]: val });
+        return await this.sendMessage(chatId, `✅ *Definição '${target}' guardada com sucesso!*`);
+      }
+    }
     if (cleanCmd.startsWith("config_email") || cleanCmd.startsWith("config-email") || cleanCmd.startsWith("senha_email")) {
       let rawPass = text.replace(/^\/?(config_email|config-email|senha_email)\s*/i, "").trim();
       let pass = rawPass.replace(/[<>[\]"'`\s]/g, "").trim().toLowerCase();

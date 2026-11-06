@@ -87,7 +87,8 @@ export const config = {
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || settings.cloudinaryApiKey || "",
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || settings.cloudinaryCloudName || "",
   cloudinaryUrl: process.env.CLOUDINARY_URL || settings.cloudinaryUrl || "",
-  huggingfaceToken: process.env.HUGGINGFACE_TOKEN || settings.huggingfaceToken || ""
+  huggingfaceToken: process.env.HUGGINGFACE_TOKEN || settings.huggingfaceToken || "",
+  orsApiKey: process.env.ORS_API_KEY || settings.orsApiKey || settings.openRouteServiceApiKey || ""
 };
 
 export default config;

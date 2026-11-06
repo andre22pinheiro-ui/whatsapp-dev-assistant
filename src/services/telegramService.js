@@ -17,6 +17,7 @@ import groqService from "./groqService.js";
 import amaranteMapService from "./amaranteMapService.js";
 import cloudinaryService from "./cloudinaryService.js";
 import huggingfaceService from "./huggingfaceService.js";
+import orsRouteService from "./orsRouteService.js";
 
 class TelegramService {
   constructor() {
@@ -391,6 +392,42 @@ class TelegramService {
       return await this.sendMessage(chatId, fleetSpecs);
     }
 
+    // 1.0.5.1 CÁLCULO DE ROTAS DE PESADOS 3D (OPENROUTESERVICE / ROTABUS)
+    const isRouteQuery =
+      cleanCmd === "rota" ||
+      cleanCmd === "rotas" ||
+      cleanCmd === "ors" ||
+      cleanCmd.startsWith("rota ") ||
+      cleanCmd.startsWith("rotas ") ||
+      (lower.includes("rota de ") && lower.includes("para ")) ||
+      (lower.includes("rota ") && lower.includes("para "));
+
+    if (isRouteQuery) {
+      const routeText = text.replace(/^\/?(rota|rotas|ors)\s*/i, "").trim();
+      if (!routeText || cleanCmd === "ors") {
+        return await this.sendMessage(chatId, orsRouteService.getStatus());
+      }
+
+      let origin = "";
+      let destination = "";
+      if (routeText.toLowerCase().includes(" para ")) {
+        const parts = routeText.split(/ para /i);
+        origin = parts[0].replace(/^de\s+/i, "").trim();
+        destination = parts[1].trim();
+      } else if (routeText.includes("->")) {
+        const parts = routeText.split("->");
+        origin = parts[0].trim();
+        destination = parts[1].trim();
+      } else {
+        origin = "Amarante";
+        destination = routeText;
+      }
+
+      await this.sendMessage(chatId, `🚌 _A calcular rota de pesados para gabarito de autocarro (${origin} ➡️ ${destination})..._`);
+      const routePlan = await orsRouteService.planRouteByNames(origin, destination);
+      return await this.sendMessage(chatId, routePlan);
+    }
+
     // 1.0.6 ESPECIALISTA EM EDIÇÃO, ROTEIRO E DESIGN PARA SHORTS & REELS
     const isScriptQuery =
       cleanCmd === "roteiro" ||
@@ -502,6 +539,9 @@ class TelegramService {
       } else if (target === "huggingface" || target === "hf") {
         huggingfaceService.saveToken(val);
         return await this.sendMessage(chatId, `✅ *Token do Hugging Face guardado com sucesso!*\n${huggingfaceService.getStatus()}`);
+      } else if (target === "ors" || target === "openrouteservice") {
+        orsRouteService.saveApiKey(val);
+        return await this.sendMessage(chatId, `✅ *Token do OpenRouteService guardado com sucesso!*\n${orsRouteService.getStatus()}`);
       } else {
         saveSettings({ [target]: val });
         return await this.sendMessage(chatId, `✅ *Definição '${target}' guardada com sucesso!*`);

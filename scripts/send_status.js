@@ -1,13 +1,14 @@
 import telegramService from "../src/services/telegramService.js";
-import huggingfaceService from "../src/services/huggingfaceService.js";
+import orsRouteService from "../src/services/orsRouteService.js";
 
 async function main() {
   const msg = 
-`🤗 *HUGGING FACE TOKEN ATIVADO!*
+`🛣️ *OPENROUTESERVICE (ROTABUS) ATIVADO!*
 ━━━━━━━━━━━━━━━━━━━━━━━━
-${huggingfaceService.getStatus()}
+${orsRouteService.getStatus()}
 
-💡 Consultar a qualquer momento: \`/hf\` ou \`/huggingface\``;
+💡 Teste rápido de gabarito e tempos de rota:
+\`/rota Amarante para Penafiel\` ou \`/rota Amarante para Porto\``;
 
   const res = await telegramService.notifyOwner(msg);
   console.log("Mensagem Telegram enviada:", res?.ok ? "SUCESSO" : JSON.stringify(res));

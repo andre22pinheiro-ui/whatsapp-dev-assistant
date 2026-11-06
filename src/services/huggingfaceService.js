@@ -70,3 +70,4 @@ class HuggingfaceService {
 
 export const huggingfaceService = new HuggingfaceService();
 export default huggingfaceService;
+

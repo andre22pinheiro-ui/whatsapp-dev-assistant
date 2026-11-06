@@ -7,6 +7,7 @@ import systemService from "./systemService.js";
 import universalProjectService from "./universalProjectService.js";
 import personalAssistant from "./personalAssistant.js";
 import aiService from "./aiService.js";
+import portugalLawService from "./portugalLawService.js";
 
 class TelegramService {
   constructor() {
@@ -106,6 +107,7 @@ class TelegramService {
     try {
       const commands = [
         { command: "start", description: "Menu principal e ajuda" },
+        { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
         { command: "briefing", description: "Resumo executivo diário completo (Agenda, Emails, Tarefas, Compras)" },
         { command: "criar_app", description: "Programar nova App na nuvem (GitHub + Vercel + APK)" },
         { command: "emails", description: "Resumo da caixa de entrada do Gmail" },
@@ -280,6 +282,36 @@ class TelegramService {
 
       return await this.sendMessage(chatId, healerMsg);
     }
+    // 1.0.2 CONSULTOR JURÍDICO SÉNIOR (DIÁRIO DA REPÚBLICA & LEIS DE TRÂNSITO)
+    const isLegalQuery =
+      cleanCmd === "leis" ||
+      cleanCmd === "lei" ||
+      cleanCmd === "dre" ||
+      cleanCmd === "codigo_estrada" ||
+      cleanCmd === "transito" ||
+      cleanCmd.startsWith("lei ") ||
+      cleanCmd.startsWith("leis ") ||
+      cleanCmd.startsWith("dre ") ||
+      lower.includes("diario da republica") ||
+      lower.includes("diário da república") ||
+      lower.includes("tempos de conducao") ||
+      lower.includes("tempos de condução") ||
+      lower.includes("transporte de criancas") ||
+      lower.includes("transporte de crianças") ||
+      lower.includes("cadeirinha") ||
+      lower.includes("tacografo") ||
+      lower.includes("tacógrafo") ||
+      lower.includes("leis municipais") ||
+      lower.includes("cargas e descargas") ||
+      lower.includes("codigo da estrada") ||
+      lower.includes("código da estrada") ||
+      (lower.includes("lei") && (lower.includes("trânsito") || lower.includes("transito") || lower.includes("estacionamento") || lower.includes("criança")));
+
+    if (isLegalQuery) {
+      const legalAnswer = await portugalLawService.consultLegalAdvisor(text);
+      return await this.sendMessage(chatId, legalAnswer);
+    }
+
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {
       const welcome =
         `🤖 *BEM-VINDO AO ASSISTENTE PESSOAL & DEV (TELEGRAM PRIVADO)*\n` +

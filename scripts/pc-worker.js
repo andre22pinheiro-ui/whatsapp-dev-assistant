@@ -6,6 +6,8 @@ import { promisify } from "util";
 import config from "../src/config.js";
 import antigravityService from "../src/services/antigravityService.js";
 import androidService from "../src/services/androidService.js";
+import universalProjectService from "../src/services/universalProjectService.js";
+import agentxService from "../src/services/agentxService.js";
 import logger from "../src/utils/logger.js";
 
 const execAsync = promisify(exec);
@@ -89,6 +91,7 @@ async function checkGitUpdate() {
 // 2. Enviar batimento cardíaco (Heartbeat)
 async function sendHeartbeat() {
   try {
+    const allProjects = await universalProjectService.listAllProjects(false);
     const payload = JSON.stringify({
       hostname: os.hostname(),
       platform: os.platform(),
@@ -96,7 +99,8 @@ async function sendHeartbeat() {
       uptimeSeconds: Math.round(os.uptime()),
       agyInstalled: antigravityService.isAgyInstalled(),
       projectsDir: config.projectsDir,
-      projects: androidService.listAllProjects(),
+      projects: allProjects,
+      totalProjects: allProjects.length,
       timestamp: new Date().toISOString()
     });
 
@@ -131,39 +135,96 @@ async function reportOrderResult(orderId, result) {
   }
 }
 
-// 5. Executar uma ordem localmente no Windows
+// 5. Executar uma ordem localmente no Windows com o Universal AgentX Engine
 async function processOrderLocally(order) {
   logger.info(`⚡ [EXECUÇÃO PC] A processar ordem #${order.id}: "${order.order}"`);
   const startTime = Date.now();
 
   try {
-    let projectDir = null;
-    if (order.targetProject) {
-      projectDir = config.projectsDir + "\\" + order.targetProject;
-    }
+    const rawOrder = order.order.trim();
 
-    // Se for um comando de build específico
-    if (order.order.startsWith("/build ") || order.order.startsWith("build ")) {
-      const projName = order.order.replace(/^\/?build\s+/, "").trim();
-      logger.info(`A iniciar compilação Android para ${projName}...`);
-      const buildRes = await androidService.buildAndroidProject(projName, "debug");
-      const durationSec = Math.round((Date.now() - startTime) / 1000);
+    // 5.1 Listar todos os projetos
+    if (/^\/?projetos/i.test(rawOrder)) {
+      const projects = await universalProjectService.listAllProjects(true);
+      const lines = projects.map(p => {
+        const studio = p.isOpenInStudio ? " [ABERTO NO STUDIO]" : "";
+        const git = p.hasGit ? `Git: ${p.git.branch} (${p.git.dirtyFiles} alt)` : "Sem Git";
+        return `• *${p.name}* (${p.type}) - ${git}${studio}`;
+      });
       return {
-        success: buildRes.success,
-        output: buildRes.message + (buildRes.apk ? `\nAPK gerado: ${buildRes.apk.path}` : ""),
-        durationSeconds: durationSec
+        success: true,
+        output: `📁 *Inventário Universal de Projetos (${projects.length}):*\n\n${lines.join("\n")}`,
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
       };
     }
 
-    // Execução pelo Antigravity CLI
-    const prompt = `Executa de forma autónoma a seguinte ordem solicitada via WhatsApp: "${order.order}". Faz as alterações necessárias e reporta de forma objetiva o que foi feito.`;
-    const agyRes = await antigravityService.runAgyPrompt(prompt, projectDir);
-    const durationSec = Math.round((Date.now() - startTime) / 1000);
+    // 5.2 Abrir no Android Studio (/studio <projeto>)
+    if (/^\/?studio\s+/i.test(rawOrder)) {
+      const projName = rawOrder.replace(/^\/?studio\s+/i, "").trim();
+      const openRes = await universalProjectService.openInAndroidStudio(projName);
+      return {
+        success: openRes.success,
+        output: openRes.message || openRes.error,
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
+      };
+    }
+
+    // 5.3 Comandos Git (/git <projeto> <comando>)
+    if (/^\/?git\s+/i.test(rawOrder)) {
+      const parts = rawOrder.replace(/^\/?git\s+/i, "").trim().split(" ");
+      const projName = parts[0];
+      const gitCmd = parts.slice(1).join(" ") || "status";
+      const gitRes = await universalProjectService.runGit(projName, gitCmd);
+      return {
+        success: gitRes.success,
+        output: `[Git: ${gitRes.project}] $ git ${gitCmd}\n\n${gitRes.output || gitRes.error}`,
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
+      };
+    }
+
+    // 5.4 Machine Learning (/ml [projeto] : <objetivo>)
+    if (/^\/?ml\b/i.test(rawOrder)) {
+      let targetProj = order.targetProject || null;
+      let mlPrompt = rawOrder.replace(/^\/?ml\s*/i, "").trim();
+      if (mlPrompt.includes(":")) {
+        const [projPart, ...rest] = mlPrompt.split(":");
+        targetProj = projPart.trim();
+        mlPrompt = rest.join(":").trim();
+      }
+      const mlRes = await agentxService.executeAgentTask({
+        task: mlPrompt || "Executar pipeline de Machine Learning",
+        projectName: targetProj,
+        mode: "ml"
+      });
+      return {
+        success: mlRes.success,
+        output: mlRes.output,
+        durationSeconds: mlRes.durationSeconds
+      };
+    }
+
+    // 5.5 Execução Autónoma com o Motor AgentX (/exec ou ordem padrão)
+    let targetProj = order.targetProject || null;
+    let taskText = rawOrder;
+    if (taskText.startsWith("/exec ") || taskText.startsWith("/ordem ")) {
+      taskText = taskText.replace(/^\/?(exec|ordem)\s+/i, "").trim();
+      if (taskText.includes(":")) {
+        const [projPart, ...rest] = taskText.split(":");
+        targetProj = projPart.trim();
+        taskText = rest.join(":").trim();
+      }
+    }
+
+    const agentRes = await agentxService.executeAgentTask({
+      task: taskText,
+      projectName: targetProj,
+      mode: "auto"
+    });
 
     return {
-      success: agyRes.success,
-      output: agyRes.output,
-      durationSeconds: durationSec
+      success: agentRes.success,
+      output: agentRes.output,
+      durationSeconds: agentRes.durationSeconds
     };
   } catch (err) {
     return {

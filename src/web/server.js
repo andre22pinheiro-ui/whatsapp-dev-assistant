@@ -546,6 +546,31 @@ export function createWebServer() {
     }
   });
 
+  // 8.3 GOOGLE CALENDÁRIO & SINCRONIZAÇÃO NATIVA ANDROID
+  app.get("/api/calendar/events", async (req, res) => {
+    try {
+      const { getAllEvents, getUpcomingEvents, formatDayAgenda } = await import("../services/calendarService.js");
+      const events = getUpcomingEvents(14);
+      const todayAgenda = formatDayAgenda();
+      res.json({ success: true, events, todayAgenda });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post("/api/calendar/sync", async (req, res) => {
+    try {
+      const { summary, events } = req.body || {};
+      logger.info(`📅 Calendário sincronizado a partir do telemóvel Android!`);
+      if (summary) {
+        saveSettings({ lastDeviceCalendarSummary: summary, lastCalendarSyncAt: new Date().toISOString() });
+      }
+      res.json({ success: true, message: "Calendário Android sincronizado com sucesso" });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // 9. FORÇAR RECONEXÃO / GERAR NOVO CÓDIGO
   app.post("/api/reconnect", async (req, res) => {
     const { target, reset, restartProcess } = req.body || {};

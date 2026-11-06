@@ -425,11 +425,16 @@ class TelegramService {
     if (cleanCmd === "agenda" || cleanCmd === "hoje") {
       const today = new Date().toISOString().split("T")[0];
       const events = calendarService.getEventsForDay(today);
-      if (!events || events.length === 0) {
-        return await this.sendMessage(chatId, `📅 *Agenda de Hoje:* Não tens nenhum compromisso marcado para hoje.`);
+      if (events && events.length > 0) {
+        const list = events.map((e, i) => `${i + 1}. *${e.time}* - ${e.title} (${e.location || 'Sem local'})`).join("\n");
+        return await this.sendMessage(chatId, `📅 *COMPROMISSOS DE HOJE:*\n━━━━━━━━━━━━━━━━━━━━━━━━\n${list}`);
       }
-      const list = events.map((e, i) => `${i + 1}. *${e.time}* - ${e.title} (${e.location || 'Sem local'})`).join("\n");
-      return await this.sendMessage(chatId, `📅 *COMPROMISSOS DE HOJE:*\n━━━━━━━━━━━━━━━━━━━━━━━━\n${list}`);
+
+      if (config.lastDeviceCalendarSummary) {
+        return await this.sendMessage(chatId, `📅 *AGENDA DO GOOGLE CALENDAR (SINCRONIZADA):*\n━━━━━━━━━━━━━━━━━━━━━━━━\n${config.lastDeviceCalendarSummary}`);
+      }
+
+      return await this.sendMessage(chatId, `📅 *Agenda de Hoje:* Não tens nenhum compromisso marcado para hoje.`);
     }
 
     // 9. Processamento de Linguagem Natural com IA Gemini (Free Tier)

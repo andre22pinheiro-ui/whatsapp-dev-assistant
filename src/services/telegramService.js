@@ -11,6 +11,7 @@ import portugalLawService from "./portugalLawService.js";
 import masterDomainService from "./masterDomainService.js";
 import videoScriptService from "./videoScriptService.js";
 import formadorTccService from "./formadorTccService.js";
+import immoEvalService from "./immoEvalService.js";
 
 class TelegramService {
   constructor() {
@@ -110,6 +111,7 @@ class TelegramService {
     try {
       const commands = [
         { command: "start", description: "Menu principal e ajuda" },
+        { command: "immo", description: "Avaliação Imobiliária e Bancária CMVM/BdP (Amarante e Região)" },
         { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
         { command: "roteiro", description: "Gerador de Roteiro Shorts/Reels (Retenção, B-roll e Legenda)" },
         { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
@@ -431,6 +433,31 @@ class TelegramService {
       const queryParam = text.replace(/^\/?(tcc|formador|formadortcc)\s*/i, "").trim();
       const pedagogicalAnswer = formadorTccService.processPedagogicalQuery(queryParam);
       return await this.sendMessage(chatId, pedagogicalAnswer);
+    }
+
+    // 1.0.8 IMMOEVAL-BOT: AVALIAÇÃO IMOBILIÁRIA E BANCÁRIA DETERMINÍSTICA (CMVM / BdP)
+    const isImmoQuery =
+      cleanCmd === "immo" ||
+      cleanCmd === "imovel" ||
+      cleanCmd === "imóvel" ||
+      cleanCmd === "avaliacao" ||
+      cleanCmd === "avaliação" ||
+      cleanCmd.startsWith("immo ") ||
+      cleanCmd.startsWith("imovel ") ||
+      cleanCmd.startsWith("imóvel ") ||
+      cleanCmd.startsWith("avalia ") ||
+      cleanCmd.startsWith("avaliar ") ||
+      lower.includes("idealista.pt") ||
+      lower.includes("imovirtual.com") ||
+      lower.includes("casaapoio") ||
+      lower.includes("remax.pt") ||
+      lower.includes("era.pt") ||
+      (lower.includes("avaliação bancária") || lower.includes("avaliacao bancaria")) ||
+      (lower.includes("quanto vale") && (lower.includes("casa") || lower.includes("apartamento") || lower.includes("moradia") || lower.includes("terreno")));
+
+    if (isImmoQuery) {
+      const report = immoEvalService.evaluatePropertyInput(text);
+      return await this.sendMessage(chatId, report);
     }
 
     if (cleanCmd === "start" || cleanCmd === "menu" || cleanCmd === "ajuda") {

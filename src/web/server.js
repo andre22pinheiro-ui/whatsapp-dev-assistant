@@ -471,6 +471,14 @@ export function createWebServer() {
       config.emailPassword = emailPassword;
       updates.emailPassword = emailPassword;
     }
+    if (req.body.telegramBotToken !== undefined) {
+      config.telegramBotToken = req.body.telegramBotToken;
+      updates.telegramBotToken = config.telegramBotToken;
+    }
+    if (req.body.telegramChatId !== undefined) {
+      config.telegramChatId = req.body.telegramChatId;
+      updates.telegramChatId = config.telegramChatId;
+    }
 
     const updated = saveSettings(updates);
     res.json({ success: true, settings: updated });

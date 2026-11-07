@@ -320,13 +320,16 @@ async function main() {
   // Aguardar ligação inicial
   await checkGitUpdate();
 
-  // Iniciar escuta do Telegram Bot se configurado (100% Free)
+  // Telegram Bot é gerido exclusivamente pelo telegram-multi-bot (PM2) para evitar 409 Conflict
+  // pc-worker usa apenas telegramService para notificações de saída (sendMessage)
+  /*
   try {
     const { telegramService } = await import("../src/services/telegramService.js");
     if (telegramService.isConfigured()) {
       telegramService.startPolling();
     }
   } catch (tErr) {}
+  */
 
   // Executar primeiro ciclo imediato
   await syncCycle();

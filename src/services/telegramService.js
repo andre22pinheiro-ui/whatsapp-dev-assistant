@@ -168,9 +168,9 @@ class TelegramService {
         { command: "start", description: "Menu principal e ajuda" },
         { command: "immo", description: "Avaliação Imobiliária e Bancária CMVM/BdP (Amarante e Região)" },
         { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
-        { command: "tcc", description: "Formador TCC & Pesados (CCP): Casos práticos, Tacógrafo v2 e GSR2" },
         { command: "roteiro", description: "Gerador de Roteiro Shorts/Reels (Retenção, B-roll e Legenda)" },
         { command: "leis", description: "Consultor Jurídico Sénior (Código Estrada, DRE, Municípios, Tacógrafo)" },
+        { command: "apis", description: "Diretório oficial de APIs gratuitas e registo" },
         { command: "briefing", description: "Resumo executivo diário completo (Agenda, Emails, Tarefas, Compras)" },
         { command: "criar_app", description: "Programar nova App na nuvem (GitHub + Vercel + APK)" },
         { command: "emails", description: "Resumo da caixa de entrada do Gmail" },
@@ -630,6 +630,15 @@ class TelegramService {
         `💡 _Motor LLM Primário: Groq LPU (openai/gpt-oss-120b) a Temp 0.0._`;
 
       return await this.sendMessage(chatId, welcome);
+    }
+
+    // 1.0.9 CONSULTA DE DIRETÓRIO DE APIS (/apis)
+    if (cleanCmd === "apis" || cleanCmd === "api" || cleanCmd.startsWith("apis ") || cleanCmd.startsWith("api ")) {
+      const specific = cleanCmd.replace(/^(apis|api)\s*/, "").trim();
+      if (specific) {
+        return await this.sendMessage(chatId, apiLinkService.formatSingleProvider(specific));
+      }
+      return await this.sendMessage(chatId, apiLinkService.formatApiDirectory());
     }
 
     // 1.1 Perguntas sobre Gmail / Acesso / Configuração / Link

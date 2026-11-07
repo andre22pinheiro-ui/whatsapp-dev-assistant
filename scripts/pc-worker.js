@@ -1,6 +1,7 @@
 import http from "http";
 import https from "https";
 import os from "os";
+import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import config from "../src/config.js";
@@ -334,12 +335,27 @@ async function main() {
   setInterval(syncCycle, POLL_INTERVAL_MS);
 }
 
+import fs from "fs";
+
+function logCrash(type, err) {
+  const line = `\n[${new Date().toISOString()}] [${type}] ${err?.stack || err}\n`;
+  try {
+    fs.appendFileSync(path.join(config.dataDir, "crash.log"), line, "utf8");
+  } catch(e) {}
+}
+
 process.on("uncaughtException", (err) => {
+  logCrash("UNCAUGHT_EXCEPTION", err);
   logger.error("Exceção não tratada capturada no PC Worker:", err);
 });
 
 process.on("unhandledRejection", (reason) => {
+  logCrash("UNHANDLED_REJECTION", reason);
   logger.error("Promessa rejeitada não tratada no PC Worker:", reason);
+});
+
+process.on("exit", (code) => {
+  logCrash("PROCESS_EXIT", `Process exited with code ${code}`);
 });
 
 main().catch((err) => {

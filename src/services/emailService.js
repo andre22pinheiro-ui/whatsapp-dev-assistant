@@ -472,7 +472,7 @@ Formate em Markdown para WhatsApp em português de Portugal.
 
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout verificação email (5s)")), 5000)
+        setTimeout(() => reject(new Error("Timeout verificação email (15s)")), 15000)
       );
       return await Promise.race([this._doCheckAppPromptEmails(), timeoutPromise]);
     } catch (e) {

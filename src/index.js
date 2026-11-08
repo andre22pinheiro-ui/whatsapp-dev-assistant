@@ -66,11 +66,13 @@ async function main() {
     logger.error("Erro ao inicializar WhatsApp:", err);
   }
 
-  // Iniciar Telegram Bot (100% Free - Sem QR Codes nem chaves de telemóvel)
+  // Notificações de Telegram (Apenas envio - Polling delegado ao telegram-master-bot para evitar conflitos)
   try {
     const { telegramService } = await import("./services/telegramService.js");
-    if (telegramService.isConfigured()) {
+    if (telegramService.isConfigured() && config.enableTelegramPolling === true) {
       telegramService.startPolling();
+    } else if (telegramService.isConfigured()) {
+      logger.info("ℹ️ Telegram Service pronto para notificações (Polling desativado para evitar conflito com telegram-master-bot).");
     }
   } catch (err) {
     logger.warn(`Aviso ao iniciar Telegram Service: ${err.message}`);

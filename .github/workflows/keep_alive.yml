@@ -14,3 +14,4 @@ jobs:
         run: |
           curl -s -f -m 30 "https://whatsapp-dev-assistant.onrender.com/api/health" || curl -s -f -m 30 "https://whatsapp-dev-assistant.onrender.com/" || true
           echo "Ping de keep-alive enviado com sucesso."
+

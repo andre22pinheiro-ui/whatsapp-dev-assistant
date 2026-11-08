@@ -80,6 +80,7 @@ export const config = {
   smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || "465", 10),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || settings.telegramBotToken || "",
   telegramChatId: process.env.TELEGRAM_CHAT_ID || settings.telegramChatId || "",
+  enableTelegramPolling: process.env.ENABLE_TELEGRAM_POLLING === "true" || settings.enableTelegramPolling === true || false,
   groqApiKey: process.env.GROQ_API_KEY || settings.groqApiKey || "",
   groqModel: process.env.GROQ_MODEL || settings.groqModel || "openai/gpt-oss-120b",
   githubToken: process.env.GITHUB_TOKEN || settings.githubToken || "",

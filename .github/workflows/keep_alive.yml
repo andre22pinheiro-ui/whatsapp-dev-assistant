@@ -10,8 +10,9 @@ jobs:
   ping-render:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Render Cloud Service
+      - name: Ping Render Cloud Services (WhatsApp + Telegram)
         run: |
           curl -s -f -m 30 "https://whatsapp-dev-assistant.onrender.com/api/health" || curl -s -f -m 30 "https://whatsapp-dev-assistant.onrender.com/" || true
-          echo "Ping de keep-alive enviado com sucesso."
+          curl -s -f -m 30 "https://telegram-master-bot-17bj.onrender.com/health" || true
+          echo "Pings de keep-alive enviados para ambos os serviços no Render."
 

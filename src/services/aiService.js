@@ -493,7 +493,7 @@ async function callOpenRouter(systemPrompt, userPrompt) {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
-          temperature: 0.2,
+          temperature: 0.0,
           max_tokens: 1024
         }),
         signal: AbortSignal.timeout(9000)
@@ -527,7 +527,7 @@ async function callGeminiDirect(systemInstruction, userMessage) {
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents: [{ role: 'user', parts: [{ text: userMessage }] }],
           generationConfig: {
-            temperature: 0.2,
+            temperature: 0.0,
             maxOutputTokens: 1024
           }
         }),

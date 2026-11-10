@@ -371,10 +371,12 @@ export async function processNaturalLanguage(userMessage, context = {}) {
     return { type: "action", action: "HELP" };
   }
 
-  // 3. PROCESSAMENTO COM IA DETERMINÍSTICA GROQ (Temperature: 0.0 - LPU Ultra-Rápido)
-  if (groqService.isConfigured()) {
-    try {
-      const groqSystemPrompt = `${UNIFIED_MASTER_SYSTEM_PROMPT}
+// 3. PROCESSAMENTO EM CASCATA DE 3 NÍVEIS COM IA DETERMINÍSTICA
+  // Nível 1: Groq LPU (Ultra-Rápido ~200ms)
+  // Nível 2: OpenRouter Free (Resiliente, multi-provedor gratuito)
+  // Nível 3: Google Gemini Flash Lite (Corporativo via X-goog-api-key)
+
+  const unifiedSystemPrompt = `${UNIFIED_MASTER_SYSTEM_PROMPT}
 
 Ambiente & Contexto Ativo:
 - Projetos Locais: ${JSON.stringify(context.projects || [])}
@@ -382,7 +384,6 @@ Ambiente & Contexto Ativo:
 
 Directrizes de Comunicação em Linguagem Corrente:
 - Comunica em português de Portugal fluido, natural, educado e direto ("linguagem corrente").
-- O André vai falar contigo como fala com um colega humano de confiança. Nunca peças barras (/), comandos rígidos nem respondas com mensagens de erro robóticas.
 - Se o utilizador pedir explicitamente para executar uma ação no computador, devolve estritamente o JSON de ação:
 {
   "action": "BUILD_ANDROID" | "DIAGNOSE" | "FIX" | "STATUS" | "SCREENSHOT" | "ADD_TASK" | "LIST_PROJECTS" | "CHAT",
@@ -390,11 +391,14 @@ Directrizes de Comunicação em Linguagem Corrente:
   "param": "details",
   "reply": "Resposta natural e informativa"
 }
-Para todas as outras conversas, dúvidas, análises de trânsito, legislação, obras, imobiliário ou conselhos, responde em texto corrido e estruturado a temperatura 0.0.`;
+Para todas as outras conversas, dúvidas, análises de trânsito, legislação, obras, imobiliário ou conselhos, responde em texto corrido e estruturado sem alucinações.`;
 
+  // ─── NÍVEL 1: GROQ LPU ───────────────────────────────────────────────────
+  if (groqService.isConfigured()) {
+    try {
       const groqRes = await groqService.callChat({
         userPrompt: userMessage,
-        systemPrompt: groqSystemPrompt,
+        systemPrompt: unifiedSystemPrompt,
         temperature: 0.0
       });
 
@@ -412,74 +416,135 @@ Para todas as outras conversas, dúvidas, análises de trânsito, legislação, 
         return { type: "chat", reply: text };
       }
     } catch (groqErr) {
-      logger.warn(`Erro no Groq Primary LLM: ${groqErr.message}. A recorrer ao Gemini...`);
+      logger.warn(`Erro no Groq Primary LLM: ${groqErr.message}. A recorrer ao OpenRouter...`);
     }
   }
 
-  // 4. FALLBACK SECUNDÁRIO COM IA GEMINI
-  if (!client) {
-    return {
-      type: "no_key",
-      reply:
-        "💡 *Comando recebido.*\n" +
-        "Para conversar livremente com IA determinística, a tua chave Groq ou Gemini pode ser configurada no painel web ou com `/config groq <chave>`.\n" +
-        "Podes obter a chave gratuita da Groq em: https://console.groq.com/keys\n\n" +
-        "Comandos disponíveis: `/agenda`, `/evento <quando> <o que>`, `/status`, `/projetos`, `/diagnostico <proj>`, `/build <proj>`."
-    };
-  }
-
-  const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3.1-pro-preview",
-    "gemini-flash-latest"
-  ];
-
-  let lastError = null;
-
-  for (const modelName of CANDIDATE_MODELS) {
+  // ─── NÍVEL 2: OPENROUTER FREE ────────────────────────────────────────────
+  if (config.openrouterApiKey) {
     try {
-      const model = client.getGenerativeModel({
-        model: modelName,
-        systemInstruction: `
-Você é o assistente pessoal e engenheiro sénior conectado ao computador do utilizador (Surface Pro).
-Capacidades e projetos disponíveis:
-- Projetos: ${JSON.stringify(context.projects || [])}
-- Padrões aprendidos: ${JSON.stringify(patterns)}
-Responda sempre em português e, quando aplicável, devolva um JSON com:
-{
-  "action": "BUILD_ANDROID" | "DIAGNOSE" | "FIX" | "STATUS" | "SCREENSHOT" | "ADD_TASK" | "LIST_PROJECTS" | "CHAT",
-  "project": "nome-do-projeto-se-aplicavel",
-  "param": "detalhes",
-  "reply": "mensagem amigável para WhatsApp"
-}
-Se for conversa geral, responda com texto útil e natural.
-`
-      });
-
-      const result = await model.generateContent(userMessage);
-      const text = result.response.text().trim();
-
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return { type: "action", ...parsed };
-        } catch (e) {}
+      const openRouterText = await callOpenRouter(unifiedSystemPrompt, userMessage);
+      if (openRouterText) {
+        const jsonMatch = openRouterText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.action) {
+              return { type: "action", ...parsed };
+            }
+          } catch (e) {}
+        }
+        return { type: "chat", reply: openRouterText };
       }
-
-      return { type: "chat", reply: text };
-    } catch (error) {
-      lastError = error;
-      logger.warn(`Modelo ${modelName} indisponível (${error.message.split('\n')[0]}). A tentar modelo alternativo...`);
+    } catch (orErr) {
+      logger.warn(`OpenRouter falhou: ${orErr.message}. A recorrer ao Gemini...`);
     }
   }
 
-  logger.error("Todos os modelos Gemini falharam:", lastError?.message);
+  // ─── NÍVEL 3: GOOGLE GEMINI ──────────────────────────────────────────────
+  if (config.geminiApiKey) {
+    try {
+      const geminiText = await callGeminiDirect(unifiedSystemPrompt, userMessage);
+      if (geminiText) {
+        const jsonMatch = geminiText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.action) {
+              return { type: "action", ...parsed };
+            }
+          } catch (e) {}
+        }
+        return { type: "chat", reply: geminiText };
+      }
+    } catch (geminiErr) {
+      logger.error(`Todos os níveis de IA falharam: ${geminiErr.message}`);
+    }
+  }
+
   return {
-    type: "error",
-    reply: `⚠️ A IA está temporariamente indisponível: ${lastError?.message?.split('\n')[0] || "Erro de rede"}.\nUse comandos diretos: \`/status\`, \`/projetos\`, \`/ajuda\`, \`/print\`.`
+    type: "no_key",
+    reply:
+      "💡 *Comando recebido.*\n" +
+      "Para conversar livremente com IA determinística, a tua chave Groq, OpenRouter ou Gemini pode ser configurada no ficheiro .env ou com `/config groq <chave>`.\n\n" +
+      "Comandos disponíveis: `/agenda`, `/evento <quando> <o que>`, `/status`, `/projetos`, `/diagnostico <proj>`, `/build <proj>`."
   };
+}
+
+// ─── Helpers de Cascata OpenRouter e Gemini Direto ─────────────────────────
+
+async function callOpenRouter(systemPrompt, userPrompt) {
+  const apiKey = config.openrouterApiKey;
+  if (!apiKey) return null;
+  const models = ['openrouter/free', 'liquid/lfm-3-1.7b:free', 'mistralai/mistral-7b-instruct:free'];
+  for (const model of models) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://whatsapp-dev-assistant.onrender.com',
+          'X-Title': 'WhatsApp Dev Assistant'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 1024
+        }),
+        signal: AbortSignal.timeout(9000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content && content.trim()) {
+        logger.info(`⚡ OpenRouter [${model}] respondeu com sucesso.`);
+        return content.trim();
+      }
+    } catch {}
+  }
+  return null;
+}
+
+async function callGeminiDirect(systemInstruction, userMessage) {
+  const apiKey = config.geminiApiKey;
+  if (!apiKey) return null;
+  const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+  for (const model of models) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024
+          }
+        }),
+        signal: AbortSignal.timeout(9000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text && text.trim()) {
+        logger.info(`⚡ Google Gemini [${model}] respondeu com sucesso.`);
+        return text.trim();
+      }
+    } catch (err) {
+      logger.warn(`Gemini ${model} falhou: ${err.message}`);
+    }
+  }
+  return null;
 }
 
 // Transcrição de áudios e mensagens de voz do WhatsApp / Telegram
@@ -497,33 +562,40 @@ export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
   }
 
   // 2. Fallback para Gemini Multimodal
-  const client = getAiClient();
-  if (!client) return null;
+  const geminiKey = config.geminiApiKey;
+  if (!geminiKey) return null;
 
   const cleanMime = mimeType.split(";")[0].trim();
   const base64Data = audioBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3.1-pro-preview",
+    "gemini-flash-lite-latest",
     "gemini-flash-latest"
   ];
 
   for (const modelName of CANDIDATE_MODELS) {
     try {
-      const model = client.getGenerativeModel({ model: modelName });
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
       const prompt = "Transcreve fielmente esta mensagem de áudio em português de Portugal. Devolve APENAS o texto falado de forma limpa, sem introduções nem aspas.";
-      const res = await model.generateContent([
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: cleanMime
-          }
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": geminiKey
         },
-        prompt
-      ]);
-      const text = res.response.text().trim();
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: cleanMime, data: base64Data } },
+              { text: prompt }
+            ]
+          }]
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (text) return text;
     } catch (err) {
       logger.warn(`Tentativa de transcrição com ${modelName} falhou: ${err.message}`);
@@ -534,36 +606,42 @@ export async function transcribeAudio(audioBuffer, mimeType = "audio/ogg") {
 
 // Análise multimodal de imagens, capturas de ecrã ou código
 export async function analyzeImage(imageBuffer, mimeType = "image/jpeg", userPrompt = "") {
-  const client = getAiClient();
-  if (!client) return "⚠️ Chave Gemini não configurada para análise de imagem.";
+  const geminiKey = config.geminiApiKey;
+  if (!geminiKey) return "⚠️ Chave Gemini não configurada para análise de imagem.";
 
   const cleanMime = mimeType.split(";")[0].trim();
   const base64Data = imageBuffer.toString("base64");
 
   const CANDIDATE_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3.1-pro-preview",
+    "gemini-flash-lite-latest",
     "gemini-flash-latest"
   ];
 
   for (const modelName of CANDIDATE_MODELS) {
     try {
-      const model = client.getGenerativeModel({
-        model: modelName,
-        systemInstruction: "Você é um assistente técnico e de engenharia sénior. Analise imagens, capturas de ecrã de código, mensagens de erro, relatórios ou desenhos e responda sempre em português de Portugal de forma direta, clara e com soluções práticas."
-      });
-      const prompt = userPrompt || "Analisa esta imagem e descreve o que contém, identificando eventuais problemas ou pontos de ação importantes.";
-      const res = await model.generateContent([
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: cleanMime
-          }
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+      const prompt = (userPrompt || "Analisa esta imagem e descreve o que contém, identificando eventuais problemas ou pontos de ação importantes.") +
+        "\n\nResponde em conformidade com o EU AI Act e RGPD, de forma rigorosa, estritamente factual e sem alucinações.";
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": geminiKey
         },
-        prompt
-      ]);
-      const text = res.response.text().trim();
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: cleanMime, data: base64Data } },
+              { text: prompt }
+            ]
+          }]
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (text) return text;
     } catch (err) {
       logger.warn(`Tentativa de análise visual com ${modelName} falhou: ${err.message}`);

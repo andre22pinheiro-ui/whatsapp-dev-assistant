@@ -99,24 +99,18 @@ export async function handleIncomingMessage(sock, msg, botSentMessageIds = new S
     // Extrair número limpo do remetente
     const senderNumber = senderJid.replace("@s.whatsapp.net", "");
 
-    // SEGURANÇA: Verificar se é o utilizador autorizado (912 101 839 ou 919 115 655)
+    // SEGURANÇA ESTRITA: Apenas dois contactos autorizados (919115655 e 933276221)
     const cleanSender = senderNumber.replace(/\D/g, "");
-    const cleanOwner = (config.ownerPhone || "351919115655").replace(/\D/g, "");
+    const AUTHORIZED_CONTACTS = ["919115655", "933276221", "351919115655", "351933276221"];
 
     const isAuthorized =
-      config.allowAllSenders ||
-      cleanSender === cleanOwner ||
-      cleanSender.endsWith(cleanOwner) ||
-      cleanOwner.endsWith(cleanSender) ||
-      cleanSender.includes("912101839") ||
-      cleanSender.includes("919115655") ||
-      cleanSender.includes("91915655") ||
+      AUTHORIZED_CONTACTS.some(num => cleanSender.endsWith(num) || cleanSender === num) ||
       msg.key.fromMe;
 
     if (!isAuthorized) {
-      logger.warn(`Mensagem bloqueada de número não autorizado: ${senderNumber}`);
+      logger.warn(`⛔ [SEGURANÇA] Mensagem bloqueada de número não autorizado: ${senderNumber}`);
       await sendReply(senderJid, {
-        text: "⛔ *Acesso Restrito:* Este assistente está configurado para os números autorizados (+351 919 115 655 e +351 912 101 839)."
+        text: "⛔ *Acesso Restrito*\n━━━━━━━━━━━━━━━━━━━━━━━━\nEste assistente é privado e de acesso estritamente reservado aos contactos autorizados (+351 919 115 655 e +351 933 276 221)."
       });
       return;
     }

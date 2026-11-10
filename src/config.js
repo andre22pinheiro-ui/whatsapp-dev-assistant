@@ -92,7 +92,8 @@ export const config = {
   cloudinaryUploadPreset: process.env.CLOUDINARY_UPLOAD_PRESET || settings.cloudinaryUploadPreset || "ml_default",
   cloudinaryEnvironmentId: process.env.CLOUDINARY_ENVIRONMENT_ID || settings.cloudinaryEnvironmentId || "",
   huggingfaceToken: process.env.HUGGINGFACE_TOKEN || settings.huggingfaceToken || "",
-  orsApiKey: process.env.ORS_API_KEY || settings.orsApiKey || settings.openRouteServiceApiKey || ""
+  orsApiKey: process.env.ORS_API_KEY || settings.orsApiKey || settings.openRouteServiceApiKey || "",
+  openrouterApiKey: process.env.OPENROUTER_API_KEY || settings.openrouterApiKey || ""
 };
 
 export default config;

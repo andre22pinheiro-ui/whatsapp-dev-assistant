@@ -1,6 +1,7 @@
 import http from "http";
 import https from "https";
 import os from "os";
+import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -11,6 +12,7 @@ import universalProjectService from "../src/services/universalProjectService.js"
 import agentxService from "../src/services/agentxService.js";
 import appScaffoldService from "../src/services/appScaffoldService.js";
 import emailService from "../src/services/emailService.js";
+import systemService from "../src/services/systemService.js";
 import logger from "../src/utils/logger.js";
 
 const execAsync = promisify(exec);
@@ -24,9 +26,9 @@ console.log(`
 ╚════════════════════════════════════════════════════════════════════════╝
 `);
 
-const CLOUD_URL = (config.cloudServerUrl || "http://localhost:3333").replace(/\/$/, "");
-const SYNC_SECRET = config.syncSecret || "sync_default_token_9959";
-const POLL_INTERVAL_MS = 10000; // 10 segundos
+const CLOUD_URL = (process.env.CLOUD_SERVER_URL || config.cloudServerUrl || "https://telegram-master-bot-0h2h.onrender.com").replace(/\/$/, "");
+const SYNC_SECRET = process.env.SYNC_SECRET_TOKEN || config.syncSecret || "sync_default_token_9959";
+const POLL_INTERVAL_MS = 3000; // 3 segundos para resposta rápida em chat
 
 let isProcessing = false;
 let syncCounter = 0;
@@ -146,6 +148,61 @@ async function processOrderLocally(order) {
 
   try {
     const rawOrder = order.order.trim();
+
+    // 5.0.1 Tirar Screenshot do Ecrã do Windows (/print, /screenshot, /ecra)
+    if (/^\/?(print|screenshot|ecra|ecrã)\b/i.test(rawOrder)) {
+      const snap = await systemService.takeScreenshot();
+      if (snap.success && fs.existsSync(snap.filePath)) {
+        const imgBuffer = fs.readFileSync(snap.filePath);
+        const base64 = imgBuffer.toString("base64");
+        try { fs.unlinkSync(snap.filePath); } catch {}
+        return {
+          success: true,
+          type: "photo",
+          imageBase64: base64,
+          output: "🖥️ *Screenshot capturado com sucesso no teu PC Surface!*",
+          durationSeconds: Math.round((Date.now() - startTime) / 1000)
+        };
+      }
+      return {
+        success: false,
+        output: snap.error || "Falha ao capturar screenshot no PC.",
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
+      };
+    }
+
+    // 5.0.2 Relatório de Hardware e Carga do PC (/pc, /status, /sistema)
+    if (/^\/?(pc|status|sistema|hardware)\b/i.test(rawOrder)) {
+      const health = await systemService.getSystemHealth();
+      const txt =
+        `💻 *RELATÓRIO DO PC SURFACE EM TEMPO REAL:*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🖥️ *Máquina:* ${health.os?.hostname || os.hostname()} (${health.os?.distro || os.platform()})\n` +
+        `⏱️ *Uptime Windows:* ${Math.round(os.uptime() / 3600)}h ${Math.round((os.uptime() % 3600) / 60)}m\n` +
+        `⚡ *Processador (CPU):* ${health.cpu?.currentLoad ? health.cpu.currentLoad.toFixed(1) + '%' : 'Ativo'}\n` +
+        `🧠 *Memória RAM:* ${health.memory?.usedGb || '0'} GB / ${health.memory?.totalGb || '0'} GB (${health.memory?.percent || 0}%)\n` +
+        `🔋 *Bateria:* ${health.battery?.hasBattery ? health.battery.percent + '% ' + (health.battery.isCharging ? '⚡ (A Carregar)' : '🔋') : 'Ligado à corrente'}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📁 *Projetos no Disco:* ${health.projectsCount || 0} projetos monitorizados.`;
+      return {
+        success: true,
+        output: txt,
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
+      };
+    }
+
+    // 5.0.3 Compilar Projeto Android Nativo (/compilar <projeto>)
+    if (/^\/?(compilar|build)\s+/i.test(rawOrder)) {
+      const projName = rawOrder.replace(/^\/?(compilar|build)\s+/i, "").trim();
+      const bRes = await androidService.buildProject(projName);
+      return {
+        success: bRes.success,
+        output: bRes.success
+          ? `✅ *Compilação concluída com sucesso!*\n\n📦 APK gerado: \`${bRes.apkName || projName + '.apk'}\`\n⏱️ Duração: ${bRes.durationSeconds || 0}s\n📂 Caminho: \`${bRes.apkPath || ''}\``
+          : `❌ *Falha na compilação do projeto ${projName}:*\n\n${(bRes.error || bRes.output || '').slice(0, 1500)}`,
+        durationSeconds: Math.round((Date.now() - startTime) / 1000)
+      };
+    }
 
     // 5.1 Listar todos os projetos
     if (/^\/?projetos/i.test(rawOrder)) {
@@ -337,8 +394,6 @@ async function main() {
   // Manter em escuta periódica contínua
   setInterval(syncCycle, POLL_INTERVAL_MS);
 }
-
-import fs from "fs";
 
 function logCrash(type, err) {
   const line = `\n[${new Date().toISOString()}] [${type}] ${err?.stack || err}\n`;

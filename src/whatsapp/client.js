@@ -140,6 +140,25 @@ export class WhatsAppBotInstance extends EventEmitter {
         this.pairingCode = null;
       } else {
         logger.info(`📱 [${this.name}] Pronto para emparelhar. Código QR ativo (ou utilize código de 8 dígitos sob pedido).`);
+
+        if (this.phone) {
+          setTimeout(async () => {
+            try {
+              if (this.connectionState !== "connected" && this.sock) {
+                const cleanPhone = this.phone.replace(/\D/g, "");
+                logger.info(`🔢 A solicitar Código de Emparelhamento oficial para o número +${cleanPhone}...`);
+                const code = await this.sock.requestPairingCode(cleanPhone);
+                this.pairingCode = code;
+                console.log("\n╔════════════════════════════════════════════════════════════╗");
+                console.log(`║  📱 CÓDIGO DE EMPARELHAMENTO WHATSAPP:  ${code}          ║`);
+                console.log("╚════════════════════════════════════════════════════════════╝\n");
+                this.emit("status_change", this.getStatus());
+              }
+            } catch (codeErr) {
+              logger.warn(`Aviso pairing code automático: ${codeErr.message}`);
+            }
+          }, 4000);
+        }
       }
 
       // Evento de atualização da conexão
@@ -147,8 +166,7 @@ export class WhatsAppBotInstance extends EventEmitter {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-          logger.info(`[${this.name}] Novo QR Code gerado (+${this.phone})`);
-          qrcodeTerminal.generate(qr, { small: true });
+          logger.info(`[${this.name}] Sessão à espera de emparelhamento por número/QR (+${this.phone})`);
 
           try {
             this.qrCodeDataUrl = await QRCode.toDataURL(qr);

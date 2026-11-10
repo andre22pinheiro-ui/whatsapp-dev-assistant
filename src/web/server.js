@@ -178,7 +178,14 @@ export function createWebServer() {
 
   // Middleware de proteção para todas as rotas da API
   app.use("/api", (req, res, next) => {
-    if (req.path.startsWith("/auth/") || req.path === "/mobile-message" || req.path === "/downloads") return next();
+    if (req.path.startsWith("/auth/") || req.path === "/mobile-message" || req.path === "/downloads" || req.path === "/public-pairing-code") return next();
+
+    // Permitir pedidos locais do próprio PC sem exigir autenticação constante
+    const clientIp = req.ip || req.connection?.remoteAddress || "";
+    const isLocal = clientIp.includes("127.0.0.1") || clientIp === "::1" || req.hostname === "localhost" || req.hostname === "127.0.0.1";
+    if (isLocal) {
+      return next();
+    }
 
     // Permitir rotas de sincronização PC <-> Nuvem protegidas por Token Secreto
     if (req.path.startsWith("/sync/")) {
@@ -648,6 +655,130 @@ export function createWebServer() {
       res.status(500).json({ success: false, error: e.message });
     }
   });
+
+  // 9.2 ENDPOINT PÚBLICO & PÁGINA RÁPIDA DE EMPARELHAMENTO DIRETO (/code)
+  app.get("/api/public-pairing-code", async (req, res) => {
+    const activeBot = whatsapp.receiver || whatsapp.sender;
+    const phone = (activeBot.phone || config.receiverPhone || "351912101839").replace(/\D/g, "");
+    res.json({
+      success: true,
+      connected: activeBot.connectionState === "connected",
+      pairingCode: activeBot.pairingCode || null,
+      phone
+    });
+  });
+
+  app.post("/api/public-pairing-code", async (req, res) => {
+    try {
+      const activeBot = whatsapp.receiver || whatsapp.sender;
+      if (activeBot.connectionState === "connected") {
+        return res.json({ success: true, connected: true, message: "Já conectado" });
+      }
+      if (!activeBot.sock) {
+        return res.status(500).json({ success: false, error: "Socket não inicializado" });
+      }
+      const cleanPhone = (activeBot.phone || config.receiverPhone || "351912101839").replace(/\D/g, "");
+      const code = await activeBot.sock.requestPairingCode(cleanPhone);
+      activeBot.pairingCode = code;
+      logger.info(`🔢 Novo código público de emparelhamento gerado: ${code}`);
+      res.json({ success: true, pairingCode: code, phone: cleanPhone });
+    } catch (e) {
+      logger.error("Erro ao gerar novo pairing code público:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.get("/code", (req, res) => {
+    const activeBot = whatsapp.receiver || whatsapp.sender;
+    const phone = (activeBot.phone || config.receiverPhone || "351912101839").replace(/\D/g, "");
+    const code = activeBot.pairingCode || "A gerar...";
+    const isConn = activeBot.connectionState === "connected";
+
+    res.send(`<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vincular WhatsApp - Número de Telefone</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif; }
+    body { background: #0b1120; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 32px 24px; max-width: 480px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.5); text-align: center; }
+    .badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; background: rgba(37,211,102,0.15); color: #25d366; border: 1px solid rgba(37,211,102,0.3); margin-bottom: 16px; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    .phone { color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; }
+    .code-box { background: #0f172a; border: 2px dashed #38bdf8; border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+    .code-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: #38bdf8; font-weight: 700; margin-bottom: 8px; }
+    .code-val { font-size: 2.4rem; font-weight: 900; letter-spacing: 6px; color: #38bdf8; font-family: monospace; }
+    .btn { display: inline-block; width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; transition: 0.2s; text-decoration: none; }
+    .btn-primary { background: #25d366; color: #0b1120; margin-bottom: 12px; }
+    .btn-primary:hover { background: #22c55e; }
+    .btn-secondary { background: #334155; color: #f8fafc; }
+    .btn-secondary:hover { background: #475569; }
+    .steps { text-align: left; background: rgba(15,23,42,0.6); border-radius: 12px; padding: 16px; margin-top: 24px; border: 1px solid #334155; }
+    .steps h3 { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .steps ol { padding-left: 20px; font-size: 0.85rem; line-height: 1.6; color: #94a3b8; }
+    .steps li strong { color: #f1f5f9; }
+    .tip { margin-top: 14px; font-size: 0.8rem; background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 10px 12px; color: #fde047; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">${isConn ? "✅ WHATSAPP CONECTADO" : "📱 VINCULAR NÚMERO DE TELEMÓVEL"}</span>
+    <h1>WhatsApp Bot Assistant</h1>
+    <div class="phone">Número: <strong>+${phone}</strong></div>
+
+    <div class="code-box">
+      <div class="code-title">Código de Emparelhamento (8 dígitos)</div>
+      <div id="codeDisplay" class="code-val">${code}</div>
+    </div>
+
+    <button id="btnRefresh" class="btn btn-primary" onclick="refreshCode()">🔄 Gerar Novo Código</button>
+    <a href="/" class="btn btn-secondary">Abrir Painel Completo</a>
+
+    <div class="steps">
+      <h3>Como vincular no telemóvel (Sem QR Code):</h3>
+      <ol>
+        <li>No telemóvel <strong>912 101 839</strong>, abra o <strong>WhatsApp</strong>.</li>
+        <li>Toque nos <strong>3 pontinhos</strong> (topo direito) &gt; <strong>Aparelhos conectados</strong>.</li>
+        <li>Toque em <strong>Vincular um aparelho</strong>.</li>
+        <li>No fundo do ecrã, toque em <strong>"Conectar com número de telefone"</strong>.</li>
+        <li>Introduza os 8 caracteres acima no telemóvel.</li>
+      </ol>
+
+      <div class="tip">
+        <strong>⚠️ Pediu "Chave de acesso"?</strong><br>
+        Basta encostar a sua impressão digital ou usar o PIN do ecrã do telemóvel.<br>
+        <em>Se der erro ou bloquear:</em> No WhatsApp vá a <strong>Definições &gt; Conta &gt; Chaves de acesso</strong> e toque em <strong>Eliminar/Remover</strong>.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function refreshCode() {
+      const btn = document.getElementById('btnRefresh');
+      btn.innerText = 'A gerar...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/public-pairing-code', { method: 'POST' });
+        const data = await res.json();
+        if (data.pairingCode) {
+          document.getElementById('codeDisplay').innerText = data.pairingCode;
+        } else if (data.connected) {
+          document.getElementById('codeDisplay').innerText = 'JÁ CONECTADO!';
+        }
+      } catch (e) {
+        alert('Erro ao atualizar: ' + e.message);
+      } finally {
+        btn.innerText = '🔄 Gerar Novo Código';
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>`);
+  });
+
 
   // 10. SIMULADOR DE CHAT INTERATIVO (TESTES AUTÓNOMOS E USO VIA BROWSER)
   app.post("/api/chat/send", async (req, res) => {

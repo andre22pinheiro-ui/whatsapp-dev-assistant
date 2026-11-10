@@ -698,7 +698,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Verificação inicial de sessão segura
-  if (!authToken) {
+  const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+  if (isLocalHost && !authToken) {
+    // No PC local, autenticar automaticamente com as credenciais do proprietário
+    originalFetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "Andre22pinheiro@gmail.com", pin: "9959" })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.token) {
+          authToken = data.token;
+          localStorage.setItem(TOKEN_KEY, authToken);
+        }
+        showAuthGate(false);
+        startDashboardData();
+      })
+      .catch(() => {
+        showAuthGate(false);
+        startDashboardData();
+      });
+  } else if (!authToken) {
     showAuthGate(true);
   } else {
     originalFetch("/api/auth/me", {

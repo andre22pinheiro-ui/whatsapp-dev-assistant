@@ -622,11 +622,12 @@ Formate em Markdown para WhatsApp em português de Portugal.
         lock.release();
       }
 
-      await client.logout();
       return { checked: true, found: processedApps.length, processedApps };
     } catch (err) {
       logger.error("Erro ao verificar emails de prompts:", err);
       return { checked: false, error: err.message };
+    } finally {
+      try { await client.logout(); } catch (e) {}
     }
   }
 

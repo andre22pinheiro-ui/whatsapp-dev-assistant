@@ -30,3 +30,4 @@ skills-lock.json
 
 data/temp/*
 .vercel
+.aider*
